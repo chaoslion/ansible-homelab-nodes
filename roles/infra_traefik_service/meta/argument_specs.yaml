@@ -1,0 +1,5 @@
+argument_specs:
+  main:
+    options:
+      infra_traefik_service_name:
+        type: "str"

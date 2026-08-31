@@ -1,0 +1,6 @@
+[Unit]
+Description=Homelab Daily
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/homelab-cli -lDEBUG run-daily

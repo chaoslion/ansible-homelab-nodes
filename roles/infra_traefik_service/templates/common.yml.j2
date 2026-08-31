@@ -1,0 +1,68 @@
+tls:
+  options:
+    default:
+      sniStrict: true
+http:
+  serversTransports:
+    homelab-http+nohttp2:
+      disableHTTP2: true
+    homelab-https+insecure:
+      insecureSkipVerify: true
+    homelab-https+insecure+nohttp2:
+      insecureSkipVerify: true
+      disableHTTP2: true
+  middlewares:
+    homelab-ratelimit-min:
+      rateLimit:
+        average: 3
+        burst: 10
+        period: 1s
+    homelab-ratelimit-mid:
+      rateLimit:
+        average: 50
+        burst: 100
+        period: 1s
+    homelab-ratelimit-max:
+      rateLimit:
+        average: 500
+        burst: 200
+        period: 1s
+    homelab-errorpages:
+      errors:
+        status: 400-599
+        service: homelab-errorpages@file
+        query: "/{status}"
+{% if infra_traefik_service_params.authelia is not none %}
+    homelab-authelia:
+      forwardAuth:
+        address: "http://{{ infra_traefik_service_params.authelia_resolved.address }}/api/authz/forward-auth"
+        trustForwardHeader: true
+        authResponseHeaders:
+          - "Remote-User"
+          - "Remote-Groups"
+          - "Remote-Email"
+          - "Remote-Name"
+{% endif %}
+{% if infra_traefik_service_params.crowdsec is not none %}
+    homelab-crowdsec:
+      plugin:
+        bouncer:
+          enabled: true
+          crowdsecMode: live
+          crowdsecAppsecEnabled: true
+          crowdsecAppsecHost: "{{ infra_traefik_service_params.crowdsec_appsec_resolved.address }}"
+          crowdsecAppsecFailureBlock: true
+          crowdsecAppsecUnreachableBlock: true
+          CrowdsecLapiHost: "{{ infra_traefik_service_params.crowdsec_lapi_resolved.address }}"
+          crowdsecLapiKey: {{ infra_traefik_service_params.crowdsec.key }}
+{% endif %}
+  routers:
+    homelab-errorpages:
+      rule: HostRegexp(`.+`)
+      priority: 10
+      service: homelab-errorpages@file
+  services:
+    homelab-errorpages:
+      loadBalancer:
+        servers:
+          - url: "http://{{ infra_traefik_service_params.errorpages_resolved.address }}"

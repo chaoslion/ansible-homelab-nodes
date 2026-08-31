@@ -1,0 +1,9 @@
+- name: Enable QEMU Service Override
+  listen:
+    - packages:qemu-install
+    - packages:qemu-override
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: qemu-guest-agent
+    enabled: true
+    daemon_reload: true

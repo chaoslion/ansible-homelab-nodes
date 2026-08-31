@@ -1,0 +1,32 @@
+- name: Download Projects
+  hosts: group_homelab_nodes_projects
+  tasks:
+      - name: Ensure Project Is Down
+        community.docker.docker_compose_v2:
+            state: absent
+            remove_volumes: true
+            env_files:
+                - "{{ vars_host_homelab_nodes_projects__workspace_root }}/homelab.env"
+            project_src: "{{ vars_host_homelab_nodes_projects__workspace }}"
+
+      - name: Archive Project
+        become: true
+        community.general.archive:
+            path: "{{ vars_host_homelab_nodes_projects__workspace }}"
+            dest: "{{ vars_host_homelab_nodes_projects__workspace_root }}/{{ vars_host_homelab_nodes_projects__project_name }}.tar.gz"
+            mode: "0644"
+            format: gz
+
+      - name: Download Block
+        block:
+            - name: Download Project
+              ansible.builtin.fetch:
+                  src: "{{ vars_host_homelab_nodes_projects__workspace_root }}/{{ vars_host_homelab_nodes_projects__project_name }}.tar.gz"
+                  dest: "{{ vars_group_homelab_nodes__cache }}/{{ inventory_hostname }}.tar.gz"
+                  flat: true
+
+        always:
+            - name: Remove Original Archive
+              ansible.builtin.file:
+                  path: "{{ vars_host_homelab_nodes_projects__workspace_root }}/{{ vars_host_homelab_nodes_projects__project_name }}.tar.gz"
+                  state: absent

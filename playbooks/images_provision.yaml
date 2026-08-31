@@ -1,0 +1,39 @@
+- name: Build Images
+  hosts: group_homelab_nodes_images
+  serial: 1
+  gather_facts: false
+  vars:
+      homelab_nodes_images__dockerfile: "{{ vars_group_homelab_nodes__cache }}/image-{{ vars_host_homelab_nodes_images__id }}"
+  tasks:
+      - name: Generate Dockerfile
+        ansible.builtin.template:
+            src: dockerfile.j2
+            dest: "{{ homelab_nodes_images__dockerfile }}"
+            mode: "0644"
+
+      - name: Pull Image
+        register: __pull_image_result
+        failed_when: >-
+            "msg" in __pull_image_result and not __pull_image_result.msg.lower().startswith("error pulling image")
+        community.docker.docker_image_pull:
+            name: "{{ vars_group_homelab_nodes__registry_url_push }}/{{ vars_host_homelab_nodes_images__repo }}"
+
+      - name: Build Block
+        block:
+            - name: Build Image
+              register: __build_result
+              community.docker.docker_image_build:
+                  rebuild: always
+                  name: "{{ vars_group_homelab_nodes__registry_url_push }}/{{ vars_host_homelab_nodes_images__repo }}"
+                  path: "{{ playbook_dir }}/files/docker-images"
+                  dockerfile: "{{ homelab_nodes_images__dockerfile }}"
+                  outputs:
+                      - type: image
+                        push: true
+                        name: "{{ vars_group_homelab_nodes__registry_url_push }}/{{ vars_host_homelab_nodes_images__repo }}"
+
+        always:
+            - name: Remove Image
+              community.docker.docker_image:
+                  state: absent
+                  name: "{{ vars_group_homelab_nodes__registry_url_push }}/{{ vars_host_homelab_nodes_images__repo }}"

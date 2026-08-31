@@ -1,0 +1,25 @@
+modules:
+    icmp:
+        prober: "icmp"
+        timeout: "10s"
+        icmp:
+            preferred_ip_protocol: "ip4"
+    https:
+        prober: "http"
+        timeout: "10s"
+        http:
+            preferred_ip_protocol: "ip4"
+            fail_if_not_ssl: true
+{% if infra_prometheus_exporter_blackbox_service_include_dns is defined %}
+{% for dns_config in infra_prometheus_exporter_blackbox_service_include_dns %}
+    dns-{{ dns_config.name }}:
+        prober: "dns"
+        timeout: "10s"
+        dns:
+            preferred_ip_protocol: "ip4"
+            query_name: "{{ dns_config.target }}"
+            query_type: "A"
+            valid_rcodes:
+                - "NOERROR"
+{% endfor %}
+{% endif %}

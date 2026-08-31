@@ -1,0 +1,18 @@
+- name: Create Alertmanager Configuration
+  become: true
+  ansible.builtin.template:
+      src: config.yml.j2
+      dest: "{{ vars_host_homelab_nodes_projects__workspaces[infra_alertmanager_service_name].config.source }}/alertmanager.yml"
+      mode: "0644"
+      owner: "{{ vars_host_homelab_nodes_projects__workspaces_owners[infra_alertmanager_service_name].owner }}"
+      group: "{{ vars_host_homelab_nodes_projects__workspaces_owners[infra_alertmanager_service_name].group }}"
+
+- name: Deploy Alertmanager Templates
+  become: true
+  with_fileglob: "*.tmpl"
+  ansible.builtin.copy:
+      src: "{{ item }}"
+      dest: "{{ vars_host_homelab_nodes_projects__workspaces[infra_alertmanager_service_name].config.source }}/{{ item | basename }}"
+      mode: "0644"
+      owner: "{{ vars_host_homelab_nodes_projects__workspaces_owners[infra_alertmanager_service_name].owner }}"
+      group: "{{ vars_host_homelab_nodes_projects__workspaces_owners[infra_alertmanager_service_name].group }}"

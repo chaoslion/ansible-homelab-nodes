@@ -1,0 +1,10 @@
+- name: Prepare Supervisors
+  hosts: group_homelab_nodes_supervisors
+  tasks:
+    - name: Create Homelab Nodes Pool
+      homelab.nodes.pvesh_pool:
+        name: Homelab Nodes
+
+    - name: Configure Ansible Snippet Storage
+      homelab.nodes.pvesh_tmp_storage:
+        name: homelab-ansible

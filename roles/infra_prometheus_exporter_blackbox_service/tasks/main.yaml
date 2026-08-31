@@ -1,0 +1,8 @@
+- name: Create Blackbox Exporter Configuration
+  become: true
+  ansible.builtin.template:
+      src: config.yml.j2
+      dest: "{{ vars_host_homelab_nodes_projects__workspaces[infra_prometheus_exporter_blackbox_service_name].config.source }}/config.yml"
+      mode: "0644"
+      owner: "{{ vars_host_homelab_nodes_projects__workspaces_owners[infra_prometheus_exporter_blackbox_service_name].owner }}"
+      group: "{{ vars_host_homelab_nodes_projects__workspaces_owners[infra_prometheus_exporter_blackbox_service_name].group }}"

@@ -1,0 +1,18 @@
+{% set host = node_cloudinit_network__host | ansible.builtin.mandatory(msg="host is required") %}
+{% set gateway = node_cloudinit_network__gateway | ansible.builtin.mandatory(msg="gateway is required") %}
+{% set macaddress = node_cloudinit_network__macaddress | ansible.builtin.mandatory(msg="macaddress is required") %}
+network:
+  version: 2
+  ethernets:
+    net0:
+      set-name: eth0
+      match:
+        macaddress: {{ macaddress | lower }}
+      addresses:
+        - {{ host }}/24
+      routes:
+        - to: default
+          via: {{ gateway }}
+      nameservers:
+        addresses:
+          - {{ gateway }}

@@ -1,0 +1,70 @@
+# - name: Add Package Sources
+#   ansible.builtin.template:
+#     src: sources.j2
+#     dest: /etc/apt/sources.list.d/99-homelab.sources
+#     mode: "0644"
+
+- name: Add Firmware Repository
+  deb822_repository:
+      state: present
+      enabled: true
+      name: homelab-debian-firmware
+      uris: mirror+file:///etc/apt/mirrors/debian.list
+      suites:
+          - "{{ ansible_facts.distribution_release }}"
+          - "{{ ansible_facts.distribution_release }}-updates"
+      components:
+          - non-free-firmware
+
+- name: Add Firmware Security Repository
+  deb822_repository:
+      state: present
+      enabled: true
+      name: homelab-debian-firmware-security
+      uris: mirror+file:///etc/apt/mirrors/debian-security.list
+      suites:
+          - "{{ ansible_facts.distribution_release }}-security"
+      components:
+          - non-free-firmware
+
+- name: Ensure Base Packages Installed
+  ansible.builtin.apt:
+      state: present
+      pkg:
+          - ca-certificates
+          - cron
+          - curl
+          - gpg
+          - python3
+          - python3-docker
+          - python3-prometheus-client
+          - rsync
+
+- name: Ensure Custom Packages Installed
+  when: vars_host_homelab_nodes_hosts__config.config.packages | length > 0
+  ansible.builtin.apt:
+      state: present
+      pkg: "{{ vars_host_homelab_nodes_hosts__config.config.packages }}"
+
+- name: Configure QEMU Guest Agent
+  when: inventory_hostname in groups.group_homelab_nodes_hosts_virt
+  block:
+      - name: Ensure QEMU Package Installed
+        notify: [packages:qemu-install]
+        ansible.builtin.apt:
+            state: present
+            pkg:
+                - qemu-guest-agent
+
+      - name: Ensure QEMU Service Override Directory
+        ansible.builtin.file:
+            state: directory
+            path: /etc/systemd/system/qemu-guest-agent.service.d
+            mode: "0755"
+
+      - name: Copy QEMU Service Override
+        notify: [packages:qemu-override]
+        ansible.builtin.copy:
+            src: qemu-guest-agent-hook-override.conf
+            dest: /etc/systemd/system/qemu-guest-agent.service.d/override.conf
+            mode: "0644"

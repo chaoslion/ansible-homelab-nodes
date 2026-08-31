@@ -1,0 +1,34 @@
+- name: Upload Projects
+  hosts: group_homelab_nodes_projects
+  vars:
+      projecs_upload__source: "{{ inventory_hostname }}"
+      projecs_upload__source_path: "{{ vars_group_homelab_nodes__cache }}/{{ projecs_upload__source }}.tar.gz"
+  tasks:
+      - name: Assert Archive Exists
+        ansible.builtin.assert:
+            that: projecs_upload__source_path is ansible.builtin.exists
+
+      - name: Get Workspace Stat
+        register: __result_workspace_stat
+        ansible.builtin.stat:
+            path: "{{ vars_host_homelab_nodes_projects__workspace }}"
+
+      - name: Assert Workspace Does Not Exists
+        ansible.builtin.assert:
+            that: not __result_workspace_stat.stat.exists
+
+      - name: Unarchive Project
+        become: true
+        ansible.builtin.unarchive:
+            src: "{{ projecs_upload__source_path }}"
+            dest: "{{ vars_host_homelab_nodes_projects__workspace_root }}/"
+            remote_src: false
+
+      - name: Apply Project Root Owner
+        become: true
+        ansible.builtin.file:
+          state: directory
+          path: "{{ vars_host_homelab_nodes_projects__workspace }}"
+          mode: "0755"
+          owner: "{{ vars_group_homelab_nodes__config.admin.name }}"
+          group: "{{ vars_group_homelab_nodes__config.admin.name }}"

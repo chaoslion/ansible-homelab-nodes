@@ -1,0 +1,14 @@
+- name: Create Prometheus Configuration
+  become: true
+  ansible.builtin.template:
+      src: prometheus.yml.j2
+      dest: "{{ vars_host_homelab_nodes_projects__workspaces[infra_prometheus_service_name].config.source }}/prometheus.yml"
+      mode: "0644"
+      owner: "{{ vars_host_homelab_nodes_projects__workspaces_owners[infra_prometheus_service_name].owner }}"
+      group: "{{ vars_host_homelab_nodes_projects__workspaces_owners[infra_prometheus_service_name].group }}"
+
+- name: Create Prometheus Rules And Scrapes
+  tags: [bump]
+  vars:
+      prometheus_deploy_config_workspace: "{{ infra_prometheus_service_name }}"
+  ansible.builtin.include_tasks: docker-services/prometheus-deploy-config.yaml

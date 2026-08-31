@@ -1,0 +1,20 @@
+- name: Deploy Inhibit Rules
+  become: true
+  vars:
+    alertmanager_deploy_inhibit_include_default: true
+    alertmanager_deploy_inhibit_workspace: main
+  ansible.builtin.blockinfile:
+    state: present
+    dest: "{{ vars_host_homelab_nodes_projects__workspaces[alertmanager_deploy_inhibit_workspace].config.source }}/alertmanager.yml"
+    marker: "# {mark} CUSTOM INHIBIT RULES"
+    block: |
+      inhibit_rules:
+      {% if alertmanager_deploy_inhibit_include_default %}
+        - source_matchers: ['alertname = "CommonJobDown"']
+          target_matchers: ['alertname = "CommonInstanceDown"']
+          equal: [job]
+        - source_matchers: ['alertname = "CommonInstanceDown"']
+          target_matchers: ['alertname != "CommonInstanceDown"']
+          equal: [instance]
+      {% endif %}
+      {{ lookup('ansible.builtin.template', role_path + '/templates/inhibit-rules.yml.j2') | indent(2, true) }}

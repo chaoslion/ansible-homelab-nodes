@@ -1,0 +1,46 @@
+infra_alertmanager_service_name: main
+infra_alertmanager_service_severities:
+  - critical
+  - warning
+  - info
+infra_alertmanager_service_pushover:
+  common:
+    title: '{% raw %}{{ template "pushover-custom.title" . }}{% endraw %}'
+    message: '{% raw %}{{ template "pushover-custom.message" . }}{% endraw %}'
+    send_resolved: false
+  severities:
+    critical:
+      priority: 1
+    warning:
+      priority: 0
+    info:
+      priority: -2
+infra_alertmanager_service_ntfy:
+  common:
+    send_resolved: false
+    http_config:
+      http_headers:
+        "X-Template":
+          values: ["alertmanager-custom"]
+  severities:
+    critical:
+      http_config:
+        http_headers:
+          "X-Tags":
+            values: ["rotating_light"]
+          "X-Priority":
+            values: ["urgent"]
+    warning:
+      http_config:
+        http_headers:
+          "X-Tags":
+            values: ["warning"]
+          "X-Priority":
+            values: ["default"]
+    info:
+      http_config:
+        http_headers:
+          "X-Tags":
+            values: ["information_source"]
+          "X-Priority":
+            values: ["low"]

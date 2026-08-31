@@ -1,0 +1,23 @@
+#cloud-config
+hostname: {{ vars_host_homelab_nodes_hosts__config.hostname  }}
+
+manage_etc_hosts: true
+
+users: []
+
+ssh_pwauth: false
+ssh_genkeytypes: [ed25519]
+
+timezone: {{ vars_group_homelab_nodes__config.timezone }}
+
+write_files:
+  - path: /run/homelab-node-bootstrap.sh
+    content: |
+      {{ lookup("ansible.builtin.template", "node-bootstrap.sh.j2") | indent(6) }}
+    permissions: '0755'
+
+runcmd:
+  - ["/bin/bash", "/run/homelab-node-bootstrap.sh"]
+
+power_state:
+  mode: poweroff

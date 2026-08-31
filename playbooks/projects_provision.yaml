@@ -1,0 +1,36 @@
+- name: Create Projects
+  hosts: group_homelab_nodes_projects
+  tasks:
+      - name: Ensure Workspace Directory
+        ansible.builtin.file:
+            state: directory
+            path: "{{ vars_host_homelab_nodes_projects__workspace }}"
+            mode: "0755"
+
+      - name: Ensure Workspace Paths
+        become: true
+        loop: "{{ vars_host_homelab_nodes_projects__workspaces_paths }}"
+        ansible.builtin.file:
+            state: directory
+            path: "{{ item.path }}"
+            mode: "{{ item.mode }}"
+            owner: "{{ item.owner }}"
+            group: "{{ item.group }}"
+
+      - name: Create Compose Configuration
+        ansible.builtin.template:
+            src: project-docker-compose.yaml.j2
+            dest: "{{ vars_host_homelab_nodes_projects__workspace }}/docker-compose.yaml"
+            mode: "0644"
+
+      - name: Include Project Role
+        tags: [always]
+        ansible.builtin.include_role:
+            name: "{{ vars_host_homelab_nodes_projects__id }}"
+
+      - name: Bump Project Services
+        tags: [never, bump]
+        homelab.nodes.project_bump:
+            env: "{{ vars_host_homelab_nodes_projects__workspace_root }}/homelab.env"
+            workspace: "{{ vars_host_homelab_nodes_projects__workspace }}"
+            workspace_owners: "{{ vars_host_homelab_nodes_projects__workspaces_owners }}"

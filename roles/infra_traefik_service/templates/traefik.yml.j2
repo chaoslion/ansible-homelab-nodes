@@ -1,0 +1,82 @@
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+accessLog:
+  filters:
+    statusCodes:
+      - "400-404"
+      - "500-503"
+
+{% if vars_host_homelab_nodes_projects__params[infra_traefik_service_name].crowdsec is not none %}
+experimental:
+  plugins:
+    bouncer:
+      moduleName: github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin
+      version: "{{ infra_traefik_service_crowdsec_version }}"
+{% endif %}
+
+api:
+  insecure: true
+  dashboard: true
+
+entryPoints:
+  http:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: https
+          scheme: https
+          permanent: true
+  https:
+    address: ":443"
+    asDefault: true
+    http:
+{% if infra_traefik_service_params.crowdsec is not none %}
+      middlewares:
+        - homelab-crowdsec@file
+{% endif %}
+      tls:
+        certResolver: homelab
+        domains:
+          - main: "{{ vars_host_homelab_nodes_projects__params[infra_traefik_service_name].domain.main }}"
+{% if vars_host_homelab_nodes_projects__params[infra_traefik_service_name].domain.sans %}
+            sans:
+{% for san in vars_host_homelab_nodes_projects__params[infra_traefik_service_name].domain.sans %}
+              - "{{ san }}.{{ vars_host_homelab_nodes_projects__params[infra_traefik_service_name].domain.main }}"
+{% endfor %}
+{% endif %}
+{% if false %}
+{# when proxies in front of traefik #}
+    proxyProtocol:
+      insecure: true
+    forwardedHeaders:
+      insecure: true
+{% endif %}
+  metrics:
+    address: ":{{ vars_host_homelab_nodes_projects__specs[infra_traefik_service_name].network.metrics.port }}"
+
+certificatesResolvers:
+  homelab:
+    acme:
+      email: "{{ vars_group_homelab_nodes__config.admin.mail }}"
+      storage: "{{ vars_host_homelab_nodes_projects__workspaces[infra_traefik_service_name].acme.target }}/acme.json"
+      dnsChallenge:
+        provider: "{{ vars_host_homelab_nodes_projects__params[infra_traefik_service_name].acmedns.name }}"
+        propagation:
+          delayBeforeChecks: 30s
+        # force dns server to fetch TXT record
+        resolvers:
+{% for resolver in infra_traefik_service_acmedns_resolvers %}
+          - "{{ resolver }}"
+{% endfor %}
+
+metrics:
+  prometheus:
+    entryPoint: metrics
+
+providers:
+  file:
+    directory: "{{ vars_host_homelab_nodes_projects__workspaces[infra_traefik_service_name].config.target }}/homelab"
+    watch: true

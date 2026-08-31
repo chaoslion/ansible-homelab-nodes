@@ -1,0 +1,8 @@
+- name: Create Alloy Configuration
+  become: true
+  ansible.builtin.template:
+      src: config.alloy.j2
+      dest: "{{ vars_host_homelab_nodes_projects__workspaces.main.config.source }}/config.alloy"
+      mode: "0644"
+      owner: "{{ vars_host_homelab_nodes_projects__workspaces_owners.main.owner }}"
+      group: "{{ vars_host_homelab_nodes_projects__workspaces_owners.main.group }}"

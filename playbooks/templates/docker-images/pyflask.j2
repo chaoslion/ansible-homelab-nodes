@@ -1,0 +1,12 @@
+{% import "dockerfile-helper.j2" as helper %}
+
+ARG DEBIAN_FRONTEND=noninteractive
+{{ apt_install(["curl"]) }}
+RUN \
+  pip install --no-cache-dir --upgrade \
+  flask \
+  flask-login \
+  flask-session \
+  gunicorn \
+  requests \
+  whitenoise

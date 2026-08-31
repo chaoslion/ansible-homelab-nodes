@@ -1,0 +1,37 @@
+{% set admin_groups = ["systemd-journal"] -%}
+#!/bin/bash
+set -euxo pipefail
+# check for root
+if (( "${EUID}" != 0 )); then
+  echo "root is required"
+  exit 1;
+fi
+# check for sudo
+if ! command -v sudo; then
+  echo "sudo is required"
+  exit 1
+fi
+export DEBIAN_FRONTEND=noninteractive
+readonly HOMELAB_ADMIN_NAME="{{ vars_group_homelab_nodes__config.admin.name }}"
+readonly HOMELAB_ADMIN_PASSWORD="{{ vars_group_homelab_nodes__config.admin.password }}"
+readonly HOMELAB_ADMIN_GROUPS="{{ admin_groups | join(',') }}"
+{%- raw %}
+adduser --gecos '' --shell /bin/bash --disabled-password "${HOMELAB_ADMIN_NAME}"
+echo "${HOMELAB_ADMIN_NAME}:${HOMELAB_ADMIN_PASSWORD}" | chpasswd
+usermod -a -G "${HOMELAB_ADMIN_GROUPS}" "${HOMELAB_ADMIN_NAME}"
+echo 'vm.overcommit_memory = 1' > /etc/sysctl.d/2424-homelab.conf
+cat > "/etc/sudoers.d/2424-homelab" << EOF
+${HOMELAB_ADMIN_NAME} ALL=(ALL) NOPASSWD: ALL
+EOF
+{% endraw %}
+{{ vars_group_homelab_nodes__ca_path | homelab.nodes.sshcert_server('/root/homelab-ssh', vars_group_homelab_nodes__config.domain, vars_host_homelab_nodes_hosts__config.hostname, ansible_host) | ansible.builtin.b64decode }}
+{% if vars_host_homelab_nodes_hosts__config.config.bootstrap is not none %}
+{{ vars_host_homelab_nodes_hosts__config.config.bootstrap }}
+{%- endif %}
+{% if inventory_hostname not in groups.group_homelab_nodes_hosts_virt %}
+systemctl reboot
+{% else %}
+touch /etc/cloud/cloud-init.disabled
+{% endif %}
+date +%s > "/home/${HOMELAB_ADMIN_NAME}/HOMELAB-ID"
+chown "${HOMELAB_ADMIN_NAME}:${HOMELAB_ADMIN_NAME}" "/home/${HOMELAB_ADMIN_NAME}/HOMELAB-ID"

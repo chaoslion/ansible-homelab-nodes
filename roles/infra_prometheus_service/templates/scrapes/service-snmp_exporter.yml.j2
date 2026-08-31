@@ -1,0 +1,9 @@
+{%- import 'docker-services/prometheus.j2' as prometheus with context %}
+{%- set exporters = vars_host_homelab_nodes_projects__params[infra_prometheus_service_name].exporters_resolved %}
+{%- if "snmp" in exporters %}
+scrape_interval: 1m
+static_configs:
+{{ prometheus.target_static_configs([exporters.snmp]) }}
+relabel_configs:
+{{ prometheus.instance_relabel_config() }}
+{%- endif %}

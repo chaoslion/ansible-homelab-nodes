@@ -1,0 +1,278 @@
+- name: Provision Physical
+  hosts: group_homelab_nodes_hosts:!group_homelab_nodes_hosts_virt
+  serial: 1
+  gather_facts: false
+  tasks:
+      - name: Print Bootstrap Script Base64 Encoded
+        ansible.builtin.pause:
+            prompt: |
+                # IF LINE TOO LONG: cat - | /bin/bash -
+                # ===
+                #!/bin/bash
+                /bin/bash -x <(echo '{{ lookup('ansible.builtin.template', 'node-bootstrap.sh.j2') | ansible.builtin.b64encode }}' | base64 -d)
+                # ===
+
+- name: Provision Virtual
+  hosts: group_homelab_nodes_hosts_virt
+  serial: 1
+  gather_facts: false
+  vars:
+      __homelab_nodes_node__qemu_supervisor_config: >-
+          {{ vars_group_homelab_nodes__config.supervisors.hosts[vars_host_homelab_nodes_hosts__config.config.supervisor.name] }}
+      __homelab_nodes_node__qemu_supervisor_default_startup: 1000
+  tasks:
+      - name: Provision On Supervisor
+        delegate_to: "{{ vars_group_homelab_nodes__supervisor_inventories[vars_host_homelab_nodes_hosts__config.config.supervisor.name] }}"
+        vars:
+            __provision_default_cores: 1
+            __provision_default_shares: 1000
+            __provision_default_memory: 1024
+        block:
+            - name: Download Cloudinit Image
+              ansible.builtin.get_url:
+                  url: "{{ vars_group_homelab_nodes__config.supervisors.image.url }}"
+                  dest: "{{ vars_group_homelab_nodes__config.supervisors.image.path }}"
+                  mode: "06444"
+                  checksum: sha512:{{ vars_group_homelab_nodes__config.supervisors.image.url_sha }}
+
+            - name: Create Machine With Default Settings
+              changed_when: true
+              vars:
+                  # a node cant override these
+                  __proxmox_cloudinit__defaults:
+                      - --name={{ vars_host_homelab_nodes_hosts__config.hostname }}
+                      - --agent=enabled=1
+                      - --tags=node-group-{{ vars_host_homelab_nodes_hosts__config.config.supervisor.group }}
+                      - --boot=order=scsi0
+                      - --ostype=l26
+                      - --scsi0=local-lvm:0,import-from={{ vars_group_homelab_nodes__config.supervisors.image.path }},discard=on,iothread=1,ssd=1
+                      - --scsihw=virtio-scsi-single
+                      - --machine=q35
+                      - --serial0=socket
+                      - --tablet=0
+                      - --vga=serial0
+                      - --cores={{ __provision_default_cores }}
+                      - --balloon={{ __provision_default_memory }}
+                      - --memory={{ __provision_default_memory }}
+              ansible.builtin.command:
+                  argv: "{{ ['qm', 'create', vars_host_homelab_nodes_hosts__supervisor_vmid] + __proxmox_cloudinit__defaults }}"
+
+            - name: Apply Custom Settings
+              changed_when: true
+              ansible.builtin.command:
+                  argv: "{{ ['qm', 'set', vars_host_homelab_nodes_hosts__supervisor_vmid] + vars_host_homelab_nodes_hosts__supervisor_qemu }}"
+
+            - name: Resize Disk
+              changed_when: true
+              ansible.builtin.command:
+                  argv:
+                      - qm
+                      - disk
+                      - resize
+                      - "{{ vars_host_homelab_nodes_hosts__supervisor_vmid }}"
+                      - scsi0
+                      - +{{ vars_host_homelab_nodes_hosts__config.config.supervisor.disk }}G
+
+            - name: Get Machine Config
+              changed_when: false
+              register: __homelab_nodes_node__qemu_config
+              ansible.builtin.command:
+                  argv:
+                      - pvesh
+                      - get
+                      - /nodes/localhost/qemu/{{ vars_host_homelab_nodes_hosts__supervisor_vmid }}/config
+                      - --output-format=json
+
+            - name: Create CI Configuration Files
+              loop: [user, network]
+              vars:
+                  node_cloudinit_network__host: "{{ ansible_host }}"
+                  node_cloudinit_network__gateway: "{{ __homelab_nodes_node__qemu_supervisor_config.gateway }}"
+                  node_cloudinit_network__macaddress: |-
+                      {% set config = __homelab_nodes_node__qemu_config.stdout | from_json %}
+                      {{ config.net0 | regex_replace("^virtio=(.+),.+", "\1") }}
+              ansible.builtin.template:
+                  src: node-cloudinit-{{ item }}.yaml.j2
+                  dest: /tmp/homelab-ansible/snippets/{{ inventory_hostname }}-{{ item }}.yaml
+                  mode: "0644"
+
+            - name: Apply Cloud Init Configuration
+              changed_when: true
+              vars:
+                  __homelab_nodes_node__qemu_cicustom: |-
+                      {% set result = ["user", "network"] %}
+                      {{ result | map("regex_replace", "(.+)", "\1=homelab-ansible:snippets/" ~ inventory_hostname ~ "-\1.yaml") | join(",") }}
+              ansible.builtin.command:
+                  argv:
+                      - qm
+                      - set
+                      - "{{ vars_host_homelab_nodes_hosts__supervisor_vmid }}"
+                      - --cicustom={{ __homelab_nodes_node__qemu_cicustom }}
+                      - --ide2=local-lvm:cloudinit
+
+            - name: Start Machine
+              changed_when: true
+              ansible.builtin.command:
+                  argv:
+                      - qm
+                      - start
+                      - "{{ vars_host_homelab_nodes_hosts__supervisor_vmid }}"
+
+            - name: Wait 5 Minutes For Shutdown Through Cloud Init
+              changed_when: false
+              async: 300
+              poll: 10
+              ansible.builtin.command:
+                  argv:
+                      - qm
+                      - wait
+                      - "{{ vars_host_homelab_nodes_hosts__supervisor_vmid }}"
+
+            - name: Remove Cloud Init Configuration
+              changed_when: true
+              ansible.builtin.command:
+                  argv: >-
+                      {{ ["qm", "set", vars_host_homelab_nodes_hosts__supervisor_vmid, "--delete=cicustom,ide2"] }}
+
+            - name: Update Description
+              changed_when: true
+              ansible.builtin.command:
+                  argv:
+                      - qm
+                      - set
+                      - "{{ vars_host_homelab_nodes_hosts__supervisor_vmid }}"
+                      - --description
+                      - |
+                          | Info ||
+                          |:--|:--|
+                          | Created | {{ now(fmt="%Y-%m-%d %H:%M:%S") }} |
+                          | Ansible | {{ ansible_version.full }} |
+                          | Node | {{ vars_host_homelab_nodes_hosts__config.name }} |
+                          | Cloudinit | {{ vars_group_homelab_nodes__config.supervisors.image.url_sha }} |
+                          | Config | {{ vars_host_homelab_nodes_hosts__supervisor_qemu | map("regex_replace", "^--", "") | join(", ") | default("-", true) }} |
+
+            - name: Query Homelab Node Backup Pool
+              tags: [bump]
+              changed_when: false
+              register: __get_pool_result
+              ansible.builtin.command:
+                  argv:
+                      - pvesh
+                      - get
+                      - /pools/homelab-nodes
+                      - --output-format=json
+
+            - name: Update Homelab Node Backup Pool Membership
+              tags: [bump]
+              vars:
+                  __get_pool_member: "{{ 'qemu/{0}'.format(vars_host_homelab_nodes_hosts__supervisor_vmid) }}"
+                  __get_pool_is_member: >-
+                      {{ (__get_pool_result.stdout | ansible.builtin.from_json).members | map(attribute="id") is contains(__get_pool_member) }}
+              block:
+                  - name: Add To Homelab Node Backup Pool
+                    when:
+                        - vars_host_homelab_nodes_hosts__config.config.supervisor.backup
+                        - not __get_pool_is_member
+                    changed_when: true
+                    ansible.builtin.command:
+                        argv:
+                            - pvesh
+                            - set
+                            - /pools/homelab-nodes
+                            - --vms={{ vars_host_homelab_nodes_hosts__supervisor_vmid }}
+
+                  - name: Remove From Homelab Node Backup Pool
+                    when:
+                        - not vars_host_homelab_nodes_hosts__config.config.supervisor.backup
+                        - __get_pool_is_member
+                    changed_when: true
+                    ansible.builtin.command:
+                        argv:
+                            - pvesh
+                            - set
+                            - /pools/homelab-nodes
+                            - --delete
+                            - --vms={{ vars_host_homelab_nodes_hosts__supervisor_vmid }}
+
+            - name: Apply Custom Startup
+              tags: [bump]
+              changed_when: true
+              ansible.builtin.command:
+                  argv:
+                      - qm
+                      - set
+                      - "{{ vars_host_homelab_nodes_hosts__supervisor_vmid }}"
+                      - >-
+                          --startup=order={{ vars_host_homelab_nodes_hosts__config.config.supervisor.startup
+                          | default(__homelab_nodes_node__qemu_supervisor_default_startup, true) }},up=60
+
+            - name: Apply Cores, CPU Limit And CPU Shares
+              tags: [bump]
+              changed_when: true
+              vars:
+                  __limit_cores: "{{ vars_host_homelab_nodes_hosts__config.config.supervisor.cores | default(__provision_default_cores, true) }}"
+                  __limit_group: "{{ vars_group_homelab_nodes__supervisor_groups[vars_host_homelab_nodes_hosts__config.config.supervisor.group] }}"
+                  __limit_group_cores:
+                      high: 0.75
+                      max: 0.90
+                  __limit_cpu: "{{ __limit_cores * __limit_group_cores[vars_host_homelab_nodes_hosts__config.config.supervisor.group] | round(2) }}"
+                  __limit_cpu_group: "{{ vars_host_homelab_nodes_hosts__config.config.supervisor.group in __limit_group_cores }}"
+              ansible.builtin.command:
+                  argv:
+                      - qm
+                      - set
+                      - "{{ vars_host_homelab_nodes_hosts__supervisor_vmid }}"
+                      - --cores={{ __limit_cores }}
+                      - --cpuunits={{ (__provision_default_shares * __limit_group | round(2)) | int }}
+                      - >-
+                          {{ "--cpulimit={0}".format(__limit_cpu) if __limit_cpu_group else "--delete=cpulimit" }}
+
+            - name: Apply Memory Limit
+              tags: [bump]
+              changed_when: true
+              when: vars_host_homelab_nodes_hosts__config.config.supervisor.memory is not none
+              vars:
+                  __homelab_nodes_node__qemu_memory: "{{ vars_host_homelab_nodes_hosts__config.config.supervisor.memory }}"
+              ansible.builtin.command:
+                  argv:
+                      - qm
+                      - set
+                      - "{{ vars_host_homelab_nodes_hosts__supervisor_vmid }}"
+                      - --memory={{ __homelab_nodes_node__qemu_memory }}
+                      - --balloon={{ __homelab_nodes_node__qemu_memory }}
+
+            - name: Start Machine Again
+              changed_when: false
+              ansible.builtin.command:
+                  argv:
+                      - qm
+                      - start
+                      - "{{ vars_host_homelab_nodes_hosts__supervisor_vmid }}"
+
+- name: Test Connection
+  tags: [test]
+  hosts: group_homelab_nodes_hosts
+  gather_facts: false
+  tasks:
+      - name: Wait For Connection
+        ansible.builtin.wait_for_connection:
+            timeout: 300
+
+      - name: Gather Facts
+        ansible.builtin.setup: {}
+
+      - name: Assert Node Environment Is Correct
+        ansible.builtin.assert:
+            that:
+                - ansible_facts.env.USER == vars_group_homelab_nodes__config.admin.name
+                - ansible_facts.hostname == "node-" ~ vars_host_homelab_nodes_hosts__config.name
+
+      - name: Check Homelab ID
+        register: __homelab_nodes_node__homelab_id_stat
+        become: true
+        ansible.builtin.stat:
+            path: "{{ ansible_facts.env.HOME ~ '/HOMELAB-ID' }}"
+
+      - name: Assert Homelab ID Exists
+        ansible.builtin.assert:
+            that: __homelab_nodes_node__homelab_id_stat.stat.exists

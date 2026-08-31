@@ -1,0 +1,12 @@
+- name: Projects State
+  hosts: group_homelab_nodes_projects
+  tasks:
+      - name: Ensure Project Is Up
+        community.docker.docker_compose_v2:
+            state: present
+            recreate: always
+            pull: always
+            remove_volumes: true
+            env_files:
+                - "{{ vars_host_homelab_nodes_projects__workspace_root }}/homelab.env"
+            project_src: "{{ vars_host_homelab_nodes_projects__workspace }}"

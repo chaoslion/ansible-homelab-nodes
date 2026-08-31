@@ -1,0 +1,10 @@
+{% macro apt_install(packages) %}
+RUN \
+  apt-get update \
+  && apt-get install -y --no-install-recommends {{ packages | join(" ") }} \
+  && rm -rf /var/lib/apt/lists/*
+{% endmacro -%}
+
+{% macro pip_install(packages) %}
+RUN pip install --upgrade --no-cache-dir {{ (packages + ["pip"]) | join(" ") }}
+{% endmacro -%}

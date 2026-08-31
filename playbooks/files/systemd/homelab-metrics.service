@@ -1,0 +1,10 @@
+[Unit]
+Description=Homelab Metrics
+Requires=docker.service
+After=docker.service
+
+[Service]
+ExecStart=/usr/local/bin/homelab-cli -lDEBUG metrics
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,9 @@
+{%- import 'docker-services/prometheus.j2' as prometheus with context %}
+{%- set targets = vars_host_homelab_nodes_projects__params[infra_prometheus_service_name].alertmanagers_resolved %}
+{%- if targets | length > 0 %}
+scrape_interval: 1m
+static_configs:
+{{ prometheus.target_static_configs(targets) }}
+relabel_configs:
+{{ prometheus.instance_relabel_config() }}
+{%- endif %}

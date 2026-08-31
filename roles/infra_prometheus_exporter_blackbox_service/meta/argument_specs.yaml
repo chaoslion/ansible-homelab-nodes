@@ -1,0 +1,16 @@
+argument_specs:
+    main:
+        options:
+            infra_prometheus_exporter_blackbox_service_name:
+                type: "str"
+                required: true
+            infra_prometheus_exporter_blackbox_service_include_dns:
+                type: "list"
+                elements: "dict"
+                options:
+                    name:
+                        type: "str"
+                        required: true
+                    target:
+                        type: "str"
+                        required: true

@@ -1,0 +1,28 @@
+- name: Create Static Configuration
+  become: true
+  ansible.builtin.template:
+      src: traefik.yml.j2
+      dest: "{{ vars_host_homelab_nodes_projects__workspaces[infra_traefik_service_name].config.source }}/traefik.yml"
+      mode: "0644"
+      owner: "{{ vars_host_homelab_nodes_projects__workspaces_owners[infra_traefik_service_name].owner }}"
+      group: "{{ vars_host_homelab_nodes_projects__workspaces_owners[infra_traefik_service_name].group }}"
+
+- name: Create Dynamic Configuration Directory
+  become: true
+  ansible.builtin.file:
+      path: "{{ vars_host_homelab_nodes_projects__workspaces[infra_traefik_service_name].config.source }}/homelab"
+      state: directory
+      mode: "0755"
+      owner: "{{ vars_host_homelab_nodes_projects__workspaces_owners[infra_traefik_service_name].owner }}"
+      group: "{{ vars_host_homelab_nodes_projects__workspaces_owners[infra_traefik_service_name].group }}"
+
+- name: Create Dynamic Configuration
+  tags: [bump]
+  become: true
+  loop: [common, common-websites]
+  ansible.builtin.template:
+      src: "{{ item }}.yml.j2"
+      dest: "{{ vars_host_homelab_nodes_projects__workspaces[infra_traefik_service_name].config.source }}/homelab/{{ item }}.yml"
+      mode: "0644"
+      owner: "{{ vars_host_homelab_nodes_projects__workspaces_owners[infra_traefik_service_name].owner }}"
+      group: "{{ vars_host_homelab_nodes_projects__workspaces_owners[infra_traefik_service_name].group }}"

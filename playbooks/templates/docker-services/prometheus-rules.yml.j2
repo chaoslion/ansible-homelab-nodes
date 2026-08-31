@@ -1,0 +1,6 @@
+{%- import 'docker-services/prometheus.j2' as prometheus with context %}
+{% if role_name == 'infra_prometheus_service' -%}
+{{ prometheus.rules(watch=infra_prometheus_service_watch + infra_prometheus_service_watch_custom) }}
+{%- else -%}
+{{ prometheus.custom_rules() }}
+{%- endif %}

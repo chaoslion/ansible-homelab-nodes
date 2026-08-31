@@ -1,0 +1,64 @@
+{%- set receivers = [] -%}
+{%- for severity_name in infra_alertmanager_service_severities %}
+{%- set notifiers = {} %}
+{%- for notifier in vars_host_homelab_nodes_projects__params[infra_alertmanager_service_name].notifiers %}
+
+{%- if notifier.type == 'pushover' %}
+{%- set pushover_config = infra_alertmanager_service_pushover.severities[severity_name] | ansible.builtin.combine(
+    infra_alertmanager_service_pushover.common,
+    {
+        "user_key": notifier.user,
+        "token": notifier.severities[severity_name],
+    },
+    recursive=true,
+  ) %}
+{%- set _ = notifiers.update({"pushover_configs": [pushover_config]}) %}
+
+{%- elif notifier.type == 'ntfy' %}
+{%- set ntfy_config = infra_alertmanager_service_ntfy.severities[severity_name] | ansible.builtin.combine(
+    infra_alertmanager_service_ntfy.common,
+    {
+        "url": "{0}/{1}{2}".format(notifier.url.value, notifier.topic_prefix, severity_name),
+        "http_config": {"authorization": {"credentials": notifier.token}},
+    },
+    {
+        "http_config": {"http_headers": {
+            "X-Click": {"values": [vars_host_homelab_nodes_projects__params[infra_alertmanager_service_name].url.value]},
+        }},
+    } if vars_host_homelab_nodes_projects__params[infra_alertmanager_service_name].url is not none else {},
+    recursive=true,
+) %}
+{%- set _ = notifiers.update({"webhook_configs": [ntfy_config]}) %}
+{%- endif %}
+
+{%- endfor %}
+{%- set _ = receivers.append({"name": severity_name} | ansible.builtin.combine(notifiers)) %}
+{%- endfor %}
+
+{{- {"receivers": receivers} | homelab.nodes.to_yaml | trim }}
+time_intervals:
+  - name: night
+    time_intervals:
+      - times:
+          - start_time: '00:00'
+            end_time: '08:00'
+        location: 'Europe/Berlin'
+route:
+  receiver: info
+  group_by: [alertname, job]
+  group_wait: 10s
+  group_interval: 30s
+  repeat_interval: 24h
+  routes:
+    - matchers:
+        - severity = "critical"
+      receiver: critical
+      repeat_interval: 4h
+      mute_time_intervals: [night]
+    - matchers:
+        - severity = "warning"
+      receiver: warning
+      repeat_interval: 12h
+      mute_time_intervals: [night]
+    - mute_time_intervals: [night]
+templates: [{{ vars_host_homelab_nodes_projects__workspaces.main.config.target }}/*.tmpl]

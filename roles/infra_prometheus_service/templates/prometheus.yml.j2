@@ -1,0 +1,19 @@
+global:
+  scrape_interval: 1m
+  external_labels:
+    prometheus_instance: "{{ vars_host_homelab_nodes_projects__urn }}"
+
+alerting:
+  alertmanagers:
+    - scheme: http
+      static_configs:
+        - targets:
+{% for alertmanager in vars_host_homelab_nodes_projects__params[infra_prometheus_service_name].alertmanagers_resolved %}
+          - "{{ alertmanager.address }}"
+{% endfor %}
+
+rule_files:
+  - homelab-rules*.yml
+
+scrape_config_files:
+  - homelab-scrapes*.yml

@@ -1,0 +1,8 @@
+argument_specs:
+    main:
+        options:
+            infra_prometheus_exporter_snmp_service_name:
+                type: "str"
+                required: true
+            infra_prometheus_exporter_snmp_service_include_synology:
+                type: "bool"

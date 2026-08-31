@@ -1,0 +1,7 @@
+infra_traefik_service_acmedns_resolvers:
+    - "1.1.1.1:53"
+    - "1.0.0.1:53"
+    - "8.8.8.8:53"
+infra_traefik_service_name: main
+infra_traefik_service_crowdsec_version: v1.6.0
+infra_traefik_service_params: "{{ vars_host_homelab_nodes_projects__params[infra_traefik_service_name] }}"

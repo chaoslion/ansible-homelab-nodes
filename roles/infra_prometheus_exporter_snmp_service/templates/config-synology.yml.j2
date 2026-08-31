@@ -1,0 +1,11 @@
+{% if infra_prometheus_exporter_snmp_service_include_synology %}
+auths:
+    homelab-synologyv3:
+        version: 3
+        security_level: "authPriv"
+        auth_protocol: "SHA"
+        username: "{{ vars_group_homelab_nodes__config.admin.name }}"
+        password: "{{ vars_group_homelab_nodes__config.admin.password }}"
+        priv_protocol: "AES"
+        priv_password: "{{ vars_group_homelab_nodes__config.admin.password }}"
+{% endif %}

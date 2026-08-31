@@ -1,0 +1,71 @@
+{%- macro target_static_configs(targets) -%}
+{% for target in targets %}
+  - targets: ["{{ target.address }}"]
+    labels:
+      __source_host: "{{ target.source_host }}"
+{% endfor %}
+{%- endmacro %}
+
+{%- macro instance_relabel_config() %}
+  - source_labels: [__source_host]
+    regex: "(.+)"
+    target_label: instance
+{%- endmacro %}
+
+{%- macro blackbox_probe_relabel_configs(exporter_address, address_replacement=None) %}
+  - source_labels: ["__address__"]
+    target_label: __param_target
+{% if address_replacement %}
+    replacement: "{{ address_replacement }}"
+{% endif %}
+  - source_labels: [__param_target]
+    target_label: instance
+  - target_label: __address__
+    replacement: "{{ exporter_address }}"
+{%- endmacro %}
+
+{% macro scrapes() %}
+{%- set result = {"scrape_configs": []} %}
+{%- for item in q("ansible.builtin.fileglob", role_path ~ "/templates/scrapes/*.yml.j2") | sort %}
+{%- set rendered = (lookup("ansible.builtin.template", item) or "") | trim %}
+{%- if rendered %}
+{%- set _ = result.scrape_configs.append({"job_name": item | basename | replace(".yml.j2", "") | replace("-", "/")} | ansible.builtin.combine(rendered | ansible.builtin.from_yaml)) %}
+{%- endif %}
+{%- endfor %}
+{{- result | homelab.nodes.to_yaml | trim }}
+{% endmacro %}
+
+{% macro rules_common_jobs_down(jobs) %}
+{%- set clauses = ['max by (job) (up{job=~"' ~ (jobs | join("|")) ~ '"}) == 0'] %}
+{%- for job_name in jobs %}
+{%- set _ = clauses.append('absent(up{job="' ~ job_name ~ '"})') %}
+{%- endfor %}
+alert: "CommonJobDown"
+expr: '{{ clauses | join(" or ") }}'
+for: "15m"
+labels:
+  severity: critical
+annotations:
+  description: "{% raw %}Job missing: {{ $labels.job }}.{% endraw %}"
+{% endmacro %}
+
+{% macro rules(watch=[]) %}
+{%- set groups = {} %}
+{%- for item in q("ansible.builtin.fileglob", role_path ~ "/files/rules/*.yml") | sort %}
+{%- set group_name = item | basename | replace(".yml", "") %}
+{%- set _ = groups.update({group_name: lookup("ansible.builtin.file", item) | ansible.builtin.from_yaml}) %}
+{%- endfor %}
+{%- set group_common = {} %}
+{%- if watch %}
+{%- set _  = group_common.update({"common": {"rules": [rules_common_jobs_down(watch) | from_yaml]}}) -%}
+{%- endif %}
+{%- set config_groups = [] %}
+{%- for name, group in (groups | ansible.builtin.combine(group_common)).items() %}
+{%- set _ = config_groups.append({"name": name} | ansible.builtin.combine(group)) %}
+{%- endfor %}
+{{- {"groups": config_groups} | homelab.nodes.to_yaml | trim }}
+{% endmacro %}
+
+{% macro custom_rules() %}
+{{- rules() -}}
+{% endmacro %}

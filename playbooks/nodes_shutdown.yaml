@@ -1,0 +1,14 @@
+- name: Shutdown Machines
+  hosts: group_homelab_nodes_hosts_virt
+  gather_facts: false
+  tasks:
+    - name: Shutdown Machine
+      changed_when: true
+      delegate_to: "{{ vars_group_homelab_nodes__supervisor_inventories[vars_host_homelab_nodes_hosts__config.config.supervisor.name] }}"
+      ansible.builtin.command:
+        argv:
+          - qm
+          - shutdown
+          - "{{ vars_host_homelab_nodes_hosts__supervisor_vmid }}"
+          - --forceStop=1
+          - --timeout=60

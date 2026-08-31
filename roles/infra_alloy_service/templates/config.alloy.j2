@@ -1,0 +1,61 @@
+logging {
+  level = "error"
+  format = "logfmt"
+}
+
+loki.relabel "default" {
+  forward_to = []
+  rule {
+    source_labels = ["__journal__hostname"]
+    target_label  = "instance"
+  }
+  rule {
+    source_labels = ["__journal_priority_keyword"]
+    target_label  = "journal_priority"
+  }
+
+  rule {
+    source_labels = ["__journal_container_name"]
+    regex = "{{ vars_group_homelab_nodes__container_prefix }}-(.+)-.+"
+    replacement = "$1"
+    target_label  = "homelab_nodes_project"
+  }
+  rule {
+    source_labels = ["__journal_container_name"]
+    regex = "{{ vars_group_homelab_nodes__container_prefix }}-.+-(.+)"
+    replacement = "$1"
+    target_label  = "homelab_nodes_service"
+  }
+  rule {
+    source_labels = ["__journal_image_name"]
+    regex = "{{ vars_group_homelab_nodes__registry_url }}/(.+)"
+    target_label  = "homelab_nodes_image"
+  }
+}
+
+loki.source.journal "kernel" {
+  forward_to = [loki.process.default.receiver]
+  path = "{{ 'journal' | homelab.nodes.service_container_mount }}"
+  max_age = "72h"
+  matches = "_TRANSPORT=kernel"
+  relabel_rules = loki.relabel.default.rules
+}
+
+loki.source.journal "docker" {
+  forward_to = [loki.process.default.receiver]
+  path = "{{ 'journal' | homelab.nodes.service_container_mount }}"
+  max_age = "72h"
+  matches = "_SYSTEMD_UNIT=docker.service CONTAINER_TAG=homelab"
+  relabel_rules = loki.relabel.default.rules
+}
+
+loki.process "default" {
+  forward_to = [loki.write.default.receiver]
+  stage.decolorize {}
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://{{ vars_host_homelab_nodes_projects__params.main.loki_resolved.address }}/loki/api/v1/push"
+  }
+}

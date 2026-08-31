@@ -1,0 +1,16 @@
+- name: Create Prometheus Rules And Scrapes
+  tags: [bump]
+  loop: "{{ prometheus_deploy_config_names | default(__prometheus_deploy_config_names_detected) }}"
+  become: true
+  vars:
+    prometheus_deploy_config_workspace: main
+    __prometheus_deploy_config_names_detected: >-
+      {{ (['scrapes'] if (q('ansible.builtin.fileglob', role_path ~ '/templates/scrapes/*.yml.j2') | length > 0) else [])
+      + (['rules'] if (q('ansible.builtin.fileglob', role_path ~ '/files/rules/*.yml') | length > 0) else []) }}
+    __filename: "homelab-{{ item }}{{ '' if role_name == 'infra_prometheus_service' else '-custom' }}.yml"
+  ansible.builtin.template:
+    src: "docker-services/prometheus-{{ item }}.yml.j2"
+    dest: "{{ vars_host_homelab_nodes_projects__workspaces[prometheus_deploy_config_workspace].config.source }}/{{ __filename }}"
+    mode: "0644"
+    owner: "{{ vars_host_homelab_nodes_projects__workspaces_owners[prometheus_deploy_config_workspace].owner }}"
+    group: "{{ vars_host_homelab_nodes_projects__workspaces_owners[prometheus_deploy_config_workspace].group }}"

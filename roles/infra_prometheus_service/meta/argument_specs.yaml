@@ -1,0 +1,8 @@
+argument_specs:
+    main:
+        options:
+            infra_prometheus_service_name:
+                type: "str"
+            infra_prometheus_service_watch_custom:
+                type: "list"
+                elements: "str"

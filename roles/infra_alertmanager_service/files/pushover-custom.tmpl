@@ -1,0 +1,18 @@
+{{ define "pushover-custom.title" -}}
+{{ .GroupLabels.alertname }}{{ if gt (len .Alerts) 1 }} ({{ len .Alerts }}){{ end }}
+{{- end }}
+
+{{ define "pushover-custom.message" -}}
+{{ $text := "" -}}
+{{ range $i, $a := .Alerts -}}
+{{ if eq $i 0 -}}
+{{ $text = printf "[%s]\n%s" $a.Labels.instance $a.Annotations.description -}}
+{{ else -}}
+{{ $text = printf "%s\n[%s]\n%s" $text $a.Labels.instance $a.Annotations.description -}}
+{{ end -}}
+{{ end -}}
+{{ if gt (len $text) 1000 -}}
+{{ $text = printf "%.1000s\n..." $text -}}
+{{ end -}}
+{{ $text }}
+{{- end }}

@@ -1,0 +1,48 @@
+{% macro website_router(website) %}
+{% set website_fqdn = website.domains[infra_traefik_service_params.domain.main] %}
+homelab-{{ website_fqdn.id }}:
+  rule: "{{ website_fqdn.fqdns | map('regex_replace', '(.+)', 'Host(`\\1`)') | join(' || ') }}"
+  priority: 100
+  service:  "{{ website.proxy.service if website.proxy.service is string else 'homelab-' ~ website.id ~ '-main@file' }}"
+  middlewares:
+    - homelab-errorpages@file
+{% for middleware in website.proxy.middlewares %}
+    - homelab-{{ middleware }}@file
+{% endfor %}
+{% endmacro %}
+
+{%- macro website_service(website) %}
+{% for name, servers in website.proxy.service.servers_resolved.items() %}
+homelab-{{ website.id }}-{{ name }}:
+  loadBalancer:
+    servers:
+{% for server in servers %}
+{% if server is mapping %}
+      - url: "{{ 'https' if website.proxy.service.scheme.startswith('https') else 'http' }}://{{ server.address }}"
+{% else %}
+{% set target_node, target_internal, target_external = server %}
+      - url: "{{ 'https' if website.proxy.service.scheme.startswith('https') else 'http' }}://{{ target_internal.address if vars_host_homelab_nodes_projects__node_name == target_node else target_external.address }}"
+{% endif %}
+{% endfor %}
+{% if "+" in website.proxy.service.scheme %}
+    serversTransport: "{{ 'homelab-' ~ website.proxy.service.scheme ~ '@file' }}"
+{% endif %}
+{% endfor %}
+{% endmacro %}
+
+{% set websites = vars_group_homelab_nodes__config.websites.sites | rejectattr("proxy", "none") | selectattr("domains", "ansible.builtin.contains", infra_traefik_service_params.domain.main) | list %}
+{% set websites_with_router = websites | rejectattr("proxy.router", "none") | list %}
+{% set websites_with_service = websites | rejectattr("proxy.service", "string") | list %}
+http:
+{% if websites_with_router %}
+  routers:
+{% for website in websites_with_router %}
+    {{ website_router(website) | indent(width=4) }}
+{% endfor %}
+{% endif %}
+{% if websites_with_service %}
+  services:
+{% for website in websites_with_service %}
+    {{ website_service(website) | indent(width=4) }}
+{% endfor %}
+{% endif %}

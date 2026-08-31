@@ -1,0 +1,116 @@
+- name: Configure Journald Logging
+  hosts: group_homelab_nodes_hosts
+  become: true
+  roles:
+    - homelab.debian.infra_journald_retention
+
+- name: Install System Packages
+  serial: "25%"
+  hosts: group_homelab_nodes_hosts
+  become: true
+  module_defaults:
+    ansible.builtin.apt:
+      state: present
+      cache_valid_time: "{{ 24 * 60 * 60 }}"
+      update_cache: true
+      install_recommends: false
+  roles:
+    - common_system_packages
+    - homelab.debian.infra_prometheus_node_exporter
+    - homelab.debian.infra_docker_engine
+
+- name: Configure System Files And Services
+  tags: [configure]
+  hosts: group_homelab_nodes_hosts
+  become: true
+  tasks:
+    - name: Create Homelab CLI
+      ansible.builtin.copy:
+        src: homelab-cli.py
+        dest: "/usr/local/bin/homelab-cli"
+        mode: "0755"
+
+    - name: Copy Systemd Daily Files
+      with_fileglob: systemd/homelab-daily*
+      ansible.builtin.copy:
+        src: "{{ item }}"
+        dest: "/etc/systemd/system/{{ item | basename }}"
+        mode: "0644"
+
+    - name: Copy Systemd Metrics File
+      ansible.builtin.copy:
+        src: systemd/homelab-metrics.service
+        dest: /etc/systemd/system/homelab-metrics.service
+        mode: "0644"
+
+    - name: Copy Guest Agent Hook
+      when: inventory_hostname in groups.group_homelab_nodes_hosts_virt
+      ansible.builtin.copy:
+        src: homelab-fsfreeze-hook.sh
+        dest: /etc/qemu/fsfreeze-hook.d/homelab.sh
+        mode: "0755"
+
+    - name: Add Registry Host
+      ansible.builtin.blockinfile:
+        state: present
+        path: "/etc/hosts"
+        marker: "# {mark} HOMELAB DOCKER REGISTRY"
+        block: |
+          {{ vars_group_homelab_nodes__registry_address }} {{ vars_group_homelab_nodes__registry_domain }}
+
+    - name: Ensure Docker Network
+      community.docker.docker_network:
+        name: homelab
+        state: present
+        labels:
+          homelab: network
+
+    - name: Enable Homelab Services
+      loop:
+        - homelab-daily.timer
+        - homelab-metrics.service
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        enabled: true
+        daemon_reload: true
+
+- name: Configure User Workspace
+  hosts: group_homelab_nodes_hosts
+  tasks:
+
+    - name: Add Bash RC
+      ansible.builtin.blockinfile:
+        path: "{{ ansible_facts.env.HOME }}/.bashrc"
+        insertafter: EOF
+        block: |
+          alias dc='docker compose --env-file {{ vars_host_homelab_nodes_hosts__config.workspace }}/homelab.env'
+          alias hl='homelab-cli'
+
+    - name: Ensure Workspace Directory
+      ansible.builtin.file:
+        state: directory
+        path: "{{ vars_host_homelab_nodes_hosts__config.workspace }}"
+        mode: "0755"
+
+    - name: Get Docker Group ID And Add To Facts
+      ansible.builtin.getent:
+        database: group
+        key: docker
+
+    - name: Write Workspace Environment File
+      ansible.builtin.template:
+        src: homelab.env.j2
+        dest: "{{ vars_host_homelab_nodes_hosts__config.workspace }}/homelab.env"
+        mode: "0644"
+
+- name: Start Homelab Services
+  hosts: group_homelab_nodes_hosts
+  become: true
+  tasks:
+    - name: Ensure Homelab Services Started
+      loop:
+        - homelab-daily.timer
+        - homelab-metrics.service
+      ansible.builtin.systemd_service:
+        state: started
+        name: "{{ item }}"

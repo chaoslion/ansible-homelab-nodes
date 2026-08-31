@@ -1,0 +1,13 @@
+- name: Prune Docker Resources
+  hosts: group_homelab_nodes_hosts
+  tasks:
+    - name: Prune Unused Docker Data
+      community.docker.docker_prune:
+        builder_cache: true
+        builder_cache_all: true
+        containers: true
+        images: true
+        networks: true
+        networks_filters:
+          "label!": homelab=network
+        volumes: true

@@ -1,0 +1,14 @@
+namespace: "homelab"
+name: "nodes"
+description: "Node Provisioning & Docker Compose Roles"
+tags:
+    - nodes
+    - docker
+    - proxmox
+    - infrastructure
+version: "1.0.0"
+license:
+    - MIT
+readme: "README.md"
+authors:
+    - "homelab <homelab@jaehnel.info>"

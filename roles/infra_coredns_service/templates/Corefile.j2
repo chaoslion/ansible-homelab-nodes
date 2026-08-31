@@ -1,0 +1,52 @@
+{% set hosts_resolved = vars_host_homelab_nodes_projects__params[infra_coredns_service_name].hosts_resolved %}
+{% set tls_name = "security.cloudflare-dns.com" %}
+{% set tls_upstreams = ["1.1.1.2", "1.0.0.2"] %}
+{% set tls_upstreams_fallback | from_yaml %}
+# cloudflare
+- 1.1.1.1
+- 1.0.0.1
+# quad9
+- 9.9.9.9
+- 149.112.112.112
+# google
+- 8.8.8.8
+- 8.8.4.4
+{% endset %}
+
+{{ vars_host_homelab_nodes_projects__params[infra_coredns_service_name].domain }}:{{ vars_host_homelab_nodes_projects__specs[infra_coredns_service_name].network.dns.port }} {
+  loop
+{% if not vars_host_homelab_nodes_projects__params[infra_coredns_service_name].slave %}
+  file {{ vars_host_homelab_nodes_projects__workspaces[infra_coredns_service_name].config.target }}/zone {
+    reload 60s
+  }
+  transfer {
+    to *
+    to {{ vars_host_homelab_nodes_projects__params[infra_coredns_service_name].peer_resolved.host }}
+  }
+{% else %}
+  secondary {
+    transfer from {{ vars_host_homelab_nodes_projects__params[infra_coredns_service_name].peer_resolved.host }}
+  }
+{% endif %}
+}
+
+.:{{ vars_host_homelab_nodes_projects__specs[infra_coredns_service_name].network.dns.port }} {
+  cache
+{% if hosts_resolved %}
+  hosts {
+{% for host, target in hosts_resolved.items() %}
+    {{ target.host }} {{ host }}
+    fallthrough
+  }
+{% endfor %}
+{% endif %}
+  errors {
+    consolidate 5m ".* i/o timeout$"
+  }
+  prometheus 0.0.0.0:{{ vars_host_homelab_nodes_projects__specs[infra_coredns_service_name].network.metrics.port }}
+  forward . {{ (tls_upstreams | map("regex_replace", "^", "tls://") | list + tls_upstreams_fallback) | join(" ") }} {
+    tls_servername {{ tls_name }}
+    policy sequential
+    health_check 5s
+  }
+}

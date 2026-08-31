@@ -1,0 +1,9 @@
+- name: Create SNMP Exporter Synology Configuration
+  become: true
+  when: infra_prometheus_exporter_snmp_service_include_synology
+  ansible.builtin.template:
+      src: config-synology.yml.j2
+      dest: "{{ vars_host_homelab_nodes_projects__workspaces[infra_prometheus_exporter_snmp_service_name].config.source }}/config-synology.yml"
+      mode: "0644"
+      owner: "{{ vars_host_homelab_nodes_projects__workspaces_owners[infra_prometheus_exporter_snmp_service_name].owner }}"
+      group: "{{ vars_host_homelab_nodes_projects__workspaces_owners[infra_prometheus_exporter_snmp_service_name].group }}"

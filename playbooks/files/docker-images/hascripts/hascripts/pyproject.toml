@@ -1,0 +1,16 @@
+[project]
+name = "hascripts"
+version = "1.0.0"
+dependencies = [
+    "argcomplete>=3.6.3",
+    "lmdb>=2.1.1",
+]
+
+[project.scripts]
+hascripts = "hascripts.__main__:main"
+hascripts-http = "hascripts.http.__main__:main"
+hascripts-sync = "hascripts.sync.__main__:main"
+
+[build-system]
+requires = ["uv_build >= 0.10.0, <0.11.0"]
+build-backend = "uv_build"

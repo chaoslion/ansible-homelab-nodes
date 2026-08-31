@@ -1,0 +1,8 @@
+- name: Create Corefile Configuration
+  become: true
+  ansible.builtin.template:
+      src: Corefile.j2
+      dest: "{{ vars_host_homelab_nodes_projects__workspaces[infra_coredns_service_name].config.source }}/Corefile"
+      mode: "0644"
+      owner: "{{ vars_host_homelab_nodes_projects__workspaces_owners[infra_coredns_service_name].owner }}"
+      group: "{{ vars_host_homelab_nodes_projects__workspaces_owners[infra_coredns_service_name].group }}"

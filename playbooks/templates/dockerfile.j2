@@ -1,0 +1,38 @@
+{% import "dockerfile-helper.j2" as helper %}
+
+FROM {{ vars_host_homelab_nodes_images__source }}
+LABEL homelab.source={{ vars_host_homelab_nodes_images__source }}
+
+{% include "docker-images/{0}.j2".format(vars_host_homelab_nodes_images__name) ignore missing %}
+
+{% if vars_host_homelab_nodes_images__name.startswith("coder-") %}
+USER root
+ARG DEBIAN_FRONTEND=noninteractive
+{% set coder_name = "coder" %}
+{% set coder_uid = 1000 %}
+{% set coder_gid = 1000 %}
+{%
+set packages = [
+"ca-certificates",
+"curl",
+"git",
+"jq",
+"openssh-client",
+"sudo",
+]
+%}
+{{ helper.apt_install(packages) }}
+{% set usermap | ansible.builtin.from_yaml %}
+coder-node: node
+coder-texlive: texlive
+{% endset %}
+{% if vars_host_homelab_nodes_images__name in usermap %}
+RUN userdel -r {{ usermap[vars_host_homelab_nodes_images__name] }}
+{% endif %}
+RUN \
+  groupadd -g {{ coder_gid }} {{ coder_name }} \
+  && useradd -m --uid {{ coder_uid }} --gid {{ coder_gid }} --shell /bin/bash {{ coder_name }} \
+  && echo "{{ coder_name }} ALL=(ALL) NOPASSWD:ALL" >/etc/sudoers.d/{{ coder_name }} \
+  && chmod 0440 /etc/sudoers.d/{{ coder_name }}
+USER {{ coder_name }}
+{% endif %}

@@ -1,0 +1,17 @@
+interval: 1m
+rules:
+  - alert: CommonProbeFailed
+    expr: probe_success == 0
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      description: "Probe target {{ $labels.instance }} unreachable."
+
+  - alert: CommonProbeCertExpiringSoon
+    expr: probe_ssl_earliest_cert_expiry_seconds - time() < 86400 * 14
+    for: 1h
+    labels:
+      severity: info
+    annotations:
+      description: "TLS certificate for {{ $labels.instance }} expires in under 14 days."

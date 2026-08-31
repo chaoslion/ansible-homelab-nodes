@@ -1,0 +1,11 @@
+[Unit]
+Description=Homelab Daily
+Requires=docker.service
+After=docker.service
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target
