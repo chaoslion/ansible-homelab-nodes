@@ -6,7 +6,7 @@ rules:
     labels:
       severity: critical
     annotations:
-      description: "Probe target {{ $labels.instance }} unreachable."
+      description: "unreachable"
 
   - alert: CommonProbeCertExpiringSoon
     expr: probe_ssl_earliest_cert_expiry_seconds - time() < 86400 * 14
@@ -14,4 +14,4 @@ rules:
     labels:
       severity: info
     annotations:
-      description: "TLS certificate for {{ $labels.instance }} expires in under 14 days."
+      description: 'cert expires in {{ ($value / 86400) | printf "%.1f" }}d'
