@@ -1,6 +1,8 @@
 {%- import 'docker-services/prometheus.j2' as prometheus with context %}
 {% if role_name == 'infra_prometheus_service' -%}
-{{ prometheus.rules(watch=infra_prometheus_service_watch + infra_prometheus_service_watch_custom) }}
+{% set exporters = vars_host_homelab_nodes_projects__params[infra_prometheus_service_name].exporters_resolved %}
+{% set exporter_watches = vars_host_homelab_nodes_projects__params[infra_prometheus_service_name].exporters_resolved | map("regex_replace", "(.+)", "service/\\1_exporter") %}
+{{ prometheus.rules(watch=infra_prometheus_service_watch + exporter_watches + infra_prometheus_service_watch_custom) }}
 {%- else -%}
 {{ prometheus.custom_rules() }}
 {%- endif %}

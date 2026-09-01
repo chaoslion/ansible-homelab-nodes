@@ -1,6 +1,4 @@
 infra_prometheus_service_name: main
 infra_prometheus_service_watch:
   - service/alertmanager
-  - service/blackbox_exporter
-  - service/snmp_exporter
 infra_prometheus_service_watch_custom: []

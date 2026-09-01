@@ -23,7 +23,7 @@
     },
     {
         "http_config": {"http_headers": {
-            "X-Click": {"values": [vars_host_homelab_nodes_projects__params[infra_alertmanager_service_name].url.value]},
+            "X-Click": {"values": [vars_host_homelab_nodes_projects__params[infra_alertmanager_service_name].url.value ~ '#/alerts?receiver=' ~ severity_name]},
         }},
     } if vars_host_homelab_nodes_projects__params[infra_alertmanager_service_name].url is not none else {},
     recursive=true,
