@@ -70,7 +70,6 @@ class ConfigModel(StrictModel):
     ip_range: list[str] = pydantic.Field(default_factory=list)
     database: ConfigDatabaseModel
     hosts: dict[str, IPAddress] = pydantic.Field(default_factory=dict)
-    local_dns: list[str] = pydantic.Field(default_factory=list)
     mail: ConfigMailModel
     registry: ConfigRegistryLocalInsecureModel
     supervisors: ConfigSupervisorsModel | None = None
