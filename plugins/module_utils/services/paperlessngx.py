@@ -5,6 +5,7 @@ from ..models.net import (
     NetworkAddress,
     NetworkTargetModel,
     NetworkUrl,
+    url_to_nice,
 )
 from ..models.node import (
     NodeProjectServiceParamsModel,
@@ -77,7 +78,7 @@ class Service(NodeProjectService[ServiceParamsModel]):
             PAPERLESS_DBNAME="homelab",
             PAPERLESS_DBUSER="homelab",
             PAPERLESS_DBPASS="homelab",
-            PAPERLESS_DBHOST=param_postgres.address,
+            PAPERLESS_DBHOST=f"{param_postgres.host}",
             PAPERLESS_DBPORT=f"{param_postgres.port}",
             PAPERLESS_SECRET_KEY=self._params.secret,
             PAPERLESS_OCR_LANGUAGE=self._params.language,
@@ -98,7 +99,9 @@ class Service(NodeProjectService[ServiceParamsModel]):
                             "name": self._params.openid.name,
                             "client_id": self._params.openid.client_id,
                             "secret": self._params.openid.client_secret,
-                            "settings": {"server_url": f"{self._params.openid.url}"},
+                            "settings": {
+                                "server_url": url_to_nice(self._params.openid.url)
+                            },
                         }
                     ],
                 }
@@ -107,12 +110,13 @@ class Service(NodeProjectService[ServiceParamsModel]):
                 PAPERLESS_APPS="allauth.socialaccount.providers.openid_connect",
                 PAPERLESS_SOCIALACCOUNT_PROVIDERS=json.dumps(openid_config),
                 PAPERLESS_SOCIAL_ACCOUNT_SYNC_GROUPS="true",
+                PAPERLESS_DEFAULT_GROUPS="family",
                 PAPERLESS_SOCIAL_AUTO_SIGNUP="true",
             )
 
         if self._params.url is not None:
             self._compose.common.environment.update(
-                PAPERLESS_URL=f"{self._params.url}",
+                PAPERLESS_URL=url_to_nice(self._params.url),
             )
 
         self._compose.common.volumes.append(

@@ -79,6 +79,10 @@ type NetworkAddressesMapList = dict[str, list[NetworkAddress]]
 NetworkAddressAdapter = pydantic.TypeAdapter(NetworkAddress)
 
 
+def url_to_nice(url: pydantic_core.Url) -> str:
+    return str(url).rstrip("/")
+
+
 type NetworkUrl = Annotated[
     pydantic_core.Url,
     pydantic.networks.UrlConstraints(
@@ -87,8 +91,7 @@ type NetworkUrl = Annotated[
     ),
     pydantic.PlainSerializer(
         lambda x: {
-            # remove trailing slash
-            "value": str(x).rstrip("/"),
+            "value": url_to_nice(x),
             "host": x.host,
         },
         return_type=dict[str, Any],

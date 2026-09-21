@@ -9,9 +9,10 @@
 
 - name: Deploy Alertmanager Templates
   become: true
-  with_fileglob: "*.tmpl"
-  ansible.builtin.copy:
-      src: "{{ item }}"
+  loop:
+    - pushover-custom.tmpl
+  ansible.builtin.template:
+      src: "{{ item }}.j2"
       dest: "{{ vars_host_homelab_nodes_projects__workspaces[infra_alertmanager_service_name].config.source }}/{{ item | basename }}"
       mode: "0644"
       owner: "{{ vars_host_homelab_nodes_projects__workspaces_owners[infra_alertmanager_service_name].owner }}"

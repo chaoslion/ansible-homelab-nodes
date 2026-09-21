@@ -1,8 +1,12 @@
 - name: Provision Client Cert And Config
   hosts: homelab_nodes__local
   gather_facts: false
+  vars_prompt:
+    - name: __output_path
+      prompt: Output Path
+      private: false
   vars:
-    __script: "{{ vars_group_homelab_nodes__ca_path | homelab.nodes.sshcert_client('~/.ssh', vars_group_homelab_nodes__config.domain, vars_group_homelab_nodes__config.ip_range) }}"
+    __script: "{{ vars_group_homelab_nodes__ca_path | homelab.nodes.sshcert_client(__output_path | default('~/.ssh', true), vars_group_homelab_nodes__config.domain, vars_group_homelab_nodes__config.ip_range) }}"
   tasks:
     - name: Show SSH Certificate Install Script
       ansible.builtin.pause:
@@ -13,5 +17,6 @@
           {{ __script }}
 
     - name: Apply SSH Certificate Install Script
+      changed_when: true
       ansible.builtin.shell:
         cmd: "{{ __script | ansible.builtin.b64decode }}"

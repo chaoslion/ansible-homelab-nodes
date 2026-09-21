@@ -1,0 +1,16 @@
+{% macro settings(background, layout, title=none) %}
+title: "{{ title | default(vars_host_homelab_nodes_projects__params.main.domain, true) }}"
+color: slate
+theme: dark
+target: "_blank"
+disableCollapse: true
+useEqualHeights: true
+hideVersion: true
+background:
+  image: "/images/{{ background }}"
+cardBlur: md
+headerStyle: "underlined"
+quicklaunch:
+  searchDescriptions: true
+{{ {"layout": layout} | homelab.nodes.to_yaml | trim }}
+{% endmacro %}

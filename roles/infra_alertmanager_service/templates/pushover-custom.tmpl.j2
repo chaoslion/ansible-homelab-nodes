@@ -1,0 +1,7 @@
+{% import 'docker-services/prometheus.j2' as prometheus %}
+{% raw %}{{ define "pushover-custom.title" -}}{% endraw %}
+{{ prometheus.notification_template_title() }}
+{% raw %}{{- end }}{% endraw %}
+{% raw %}{{ define "pushover-custom.message" -}}{% endraw %}
+{{ prometheus.notification_template_message() }}
+{% raw %}{{- end }}{% endraw %}

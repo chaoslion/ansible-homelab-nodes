@@ -27,16 +27,11 @@ class Service(NodeProjectService[ServiceParamsModel]):
                 ),
             },
             workspace=NodeProjectServiceWorkspaceModel(
-                owner=102,
-                group=82,
+                owner=20211,
                 mounts={
-                    "config": NodeProjectServiceWorkspaceMountModel(
-                        target="/app/config",
-                    ),
-                    "db": NodeProjectServiceWorkspaceMountModel(
-                        target="/app/db",
+                    "data": NodeProjectServiceWorkspaceMountModel(
+                        target="/data",
                         volume=NodeProjectServiceWorkspaceMountVolumeModel(),
-                        mode="0750",
                     ),
                 },
             ),
@@ -49,13 +44,27 @@ class Service(NodeProjectService[ServiceParamsModel]):
         self._compose.common.environment.update(
             PORT="20211",
         )
+        self._compose.extra.update(
+            read_only=True,
+            tmpfs=[
+                "/tmp:uid=20211,gid=20211,mode=1700,rw,noexec,nosuid,nodev,async,noatime,nodiratime",
+            ],
+            cap_drop=["ALL"],
+            cap_add=[
+                "NET_ADMIN",
+                "NET_RAW",
+                "NET_BIND_SERVICE",
+                "CHOWN",
+                "SETUID",
+                "SETGID",
+            ],
+        )
         self._compose.common.volumes.append(
             {
-                "target": "/app/api",
-                "tmpfs": {
-                    "size": "16M",
-                },
-                "type": "tmpfs",
+                "source": "/etc/localtime",
+                "target": "/etc/localtime",
+                "type": "bind",
+                "read_only": True,
             },
         )
         super().customize()

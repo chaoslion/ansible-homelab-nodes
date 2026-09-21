@@ -4,6 +4,7 @@ from ..models.net import (
     NetworkAddress,
     NetworkTargetModel,
     NetworkUrl,
+    url_to_nice,
 )
 from ..models.node import (
     NodeProjectServiceParamsModel,
@@ -18,7 +19,7 @@ from . import NodeProjectService
 
 
 class ServiceParamsAuthModel(NodeProjectServiceParamsModel):
-    logout_url: str
+    logout_url: NetworkUrl
 
 
 class ServiceParamsModel(NodeProjectServiceParamsModel):
@@ -71,7 +72,7 @@ class Service(NodeProjectService[ServiceParamsModel]):
 
         if self._params.url is not None:
             self._compose.common.environment.update(
-                APP_URL=f"{self._params.url}",
+                APP_URL=url_to_nice(self._params.url),
             )
 
         if self._params.auth is not None:
@@ -79,7 +80,7 @@ class Service(NodeProjectService[ServiceParamsModel]):
                 AUTHENTICATION_GUARD="remote_user_guard",
                 AUTHENTICATION_GUARD_HEADER="HTTP_REMOTE_USER",
                 AUTHENTICATION_GUARD_EMAIL="HTTP_REMOTE_EMAIL",
-                CUSTOM_LOGOUT_URL=self._params.auth.logout_url,
+                CUSTOM_LOGOUT_URL=url_to_nice(self._params.auth.logout_url),
             )
 
         self._compose.common.environment.update(

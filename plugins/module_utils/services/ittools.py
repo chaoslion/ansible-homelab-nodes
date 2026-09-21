@@ -16,10 +16,10 @@ class Service(NodeProjectService[ServiceParamsModel]):
     @typing.override
     def spec(self) -> NodeProjectServiceSpecModel:
         return NodeProjectServiceSpecModel(
-            upstream="docker.io/corentinth/it-tools",
+            upstream="docker.io/sharevb/it-tools",
             network={
                 "http": NetworkTargetModel(
-                    port=80,
+                    port=8080,
                 ),
             },
         )

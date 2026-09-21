@@ -6,7 +6,8 @@ rules:
     labels:
       severity: critical
     annotations:
-      description: "unreachable"
+      description: "Target is unreachable."
+      summary: "{{ $labels.instance }}"
 
   - alert: CommonAlertmanagerNotificationsFailing
     expr: rate(alertmanager_notifications_failed_total[15m]) > 0
@@ -14,4 +15,5 @@ rules:
     labels:
       severity: critical
     annotations:
-      description: "{{ $labels.integration }}, {{ $value | printf \"%.2f\" }}/s failures"
+      description: "Alertmanager is failing to deliver notifications through this integration."
+      summary: "{{ $labels.integration }}: {{ $value | printf \"%.2f\" }}/s failures"

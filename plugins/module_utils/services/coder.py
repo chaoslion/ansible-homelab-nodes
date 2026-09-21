@@ -4,6 +4,7 @@ from ..models.net import (
     NetworkAddress,
     NetworkTargetModel,
     NetworkUrl,
+    url_to_nice,
 )
 from ..models.node import (
     NodeProjectServiceParamsModel,
@@ -90,7 +91,7 @@ class Service(NodeProjectService[ServiceParamsModel]):
                 CODER_OIDC_CLIENT_SECRET=self._params.openid.client_secret,
                 CODER_OIDC_EMAIL_FIELD="email",
                 CODER_OIDC_IGNORE_EMAIL_VERIFIED="false",
-                CODER_OIDC_ISSUER_URL=f"{self._params.openid.url}",
+                CODER_OIDC_ISSUER_URL=url_to_nice(self._params.openid.url),
                 CODER_OIDC_SCOPES="openid,profile,email,offline_access",
                 CODER_OIDC_SIGN_IN_TEXT=self._params.openid.name,
                 CODER_OIDC_USERNAME_FIELD="preferred_username",

@@ -1,0 +1,39 @@
+@font-face {
+  font-family: 'Space Grotesk';
+  src: url('/images/space-grotesk-latin-wght-normal.woff2') format('woff2-variations');
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Fira Code';
+  src: url('/images/fira-code-latin-wght-normal.woff2') format('woff2-variations');
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --font-sans: 'Space Grotesk', system-ui, -apple-system, sans-serif !important;
+  --font-mono: 'Fira Code', monospace !important;
+  font-family: var(--font-sans);
+}
+
+body,
+button,
+input,
+select,
+textarea,
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif !important;
+}
+
+.service-description,
+.bookmark-description {
+  font-family: 'Fira Code', monospace !important;
+}
+
+.service-description {
+    white-space: pre-wrap;
+}

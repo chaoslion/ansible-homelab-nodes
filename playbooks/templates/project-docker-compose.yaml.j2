@@ -1,5 +1,4 @@
 {%- set config = {} %}
-{%- set _ = config.update({"x-homelab-stopmode": vars_host_homelab_nodes_projects__stopmode}) %}
 {%- set _ = config.update({"x-homelab-scripts": vars_host_homelab_nodes_projects__scripts}) %}
 {%- set _ = config.update({"networks": {"default":{"name": "homelab", "external": true}}}) %}
 {%- set _ = config.update({"services": vars_host_homelab_nodes_projects__compose_services}) %}

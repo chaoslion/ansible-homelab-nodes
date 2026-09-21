@@ -1,7 +1,7 @@
 import typing
+from typing import Literal
 
 import pydantic
-from typing_extensions import Literal
 
 from ..models.net import (
     NetworkAddresses,
@@ -29,7 +29,7 @@ class ServicePushoverCredentialsModel(NodeProjectServiceParamsModel):
 class ServiceNtfyCredentialsModel(NodeProjectServiceParamsModel):
     type: Literal["ntfy"]
     token: str
-    topic_prefix: str
+    topic: str
     url: NetworkUrl
 
 

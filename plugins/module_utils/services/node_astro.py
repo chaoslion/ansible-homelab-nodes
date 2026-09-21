@@ -16,7 +16,6 @@ from . import (
 
 
 class ServiceParamsModel(NodeProjectServiceParamsModel):
-    command: list[str]
     healthcheck: str
 
 
@@ -43,7 +42,7 @@ class Service(NodeProjectService[ServiceParamsModel]):
                 "wget",
                 "-q",
                 "-O-",
-                f"http://localhost:{self._spec_model.network['http'].port}/{self._params.healthcheck}",
+                f"http://127.0.0.1:{self._spec_model.network['http'].port}/{self._params.healthcheck}",
             ],
         )
 
@@ -58,8 +57,13 @@ class Service(NodeProjectService[ServiceParamsModel]):
                 "read_only": True,
             },
         )
+        self._compose.common.environment.update(
+            HOST="0.0.0.0",
+        )
         self._compose.extra.update(
             working_dir=workspace,
-            command=self._params.command,
+            command=[
+                "server/entry.mjs",
+            ],
         )
         super().customize()

@@ -34,7 +34,6 @@ class ContainerInfo(NamedTuple):
 
 
 type ContainerSnapshotStatsNames = Literal[
-    "running",
     "cpu",
     "memory",
 ]
@@ -44,6 +43,7 @@ type ContainerSnapshotStats = dict[ContainerSnapshotStatsNames, float]
 
 class ContainerSnapshot(NamedTuple):
     name: str
+    running: bool
     stats: ContainerSnapshotStats
 
 
@@ -224,7 +224,7 @@ class StatsSnapshotCollector(prometheus_client.registry.Collector):
                 # skip empty projects
                 if not snapshots:
                     continue
-                running = all(c.stats["running"] for c in snapshots)
+                running = all(c.running for c in snapshots)
                 prom_project_running.add_metric(
                     [project],
                     value=1 if running else 0,
@@ -246,11 +246,8 @@ class StatsSnapshotCollector(prometheus_client.registry.Collector):
             project_container_gauges_description_prefix = (
                 "Homelab Nodes Project Container"
             )
-            project_container_gauges: dict[
-                ContainerSnapshotStatsNames,
-                prometheus_client.metrics_core.GaugeMetricFamily,
-            ] = {
-                "running": prometheus_client.metrics_core.GaugeMetricFamily(
+            project_container_gauges = [
+                prometheus_client.metrics_core.GaugeMetricFamily(
                     f"{project_container_gauges_prefix}_running",
                     f"{project_container_gauges_description_prefix} Running Status",
                     labels=[
@@ -258,15 +255,7 @@ class StatsSnapshotCollector(prometheus_client.registry.Collector):
                         "name",
                     ],
                 ),
-                "memory": prometheus_client.metrics_core.GaugeMetricFamily(
-                    f"{project_container_gauges_prefix}_memory_percent",
-                    f"{project_container_gauges_description_prefix} Memory Usage Percent",
-                    labels=[
-                        "project",
-                        "name",
-                    ],
-                ),
-                "cpu": prometheus_client.metrics_core.GaugeMetricFamily(
+                prometheus_client.metrics_core.GaugeMetricFamily(
                     f"{project_container_gauges_prefix}_cpu_percent",
                     f"{project_container_gauges_description_prefix} CPU Usage Percent",
                     labels=[
@@ -274,23 +263,42 @@ class StatsSnapshotCollector(prometheus_client.registry.Collector):
                         "name",
                     ],
                 ),
-            }
+                prometheus_client.metrics_core.GaugeMetricFamily(
+                    f"{project_container_gauges_prefix}_memory_percent",
+                    f"{project_container_gauges_description_prefix} Memory Usage Percent",
+                    labels=[
+                        "project",
+                        "name",
+                    ],
+                ),
+            ]
+
+            gauge_running, gauge_cpu, gauge_memory = project_container_gauges
 
             for project, snapshots in self._stats.snapshots.items():
-                for (
-                    container_gauge_name,
-                    container_gauge,
-                ) in project_container_gauges.items():
-                    for snapshot in snapshots:
-                        container_gauge.add_metric(
-                            [
-                                project,
-                                snapshot.name,
-                            ],
-                            value=snapshot.stats[container_gauge_name],
-                        )
-            for container_gauge in project_container_gauges.values():
-                yield container_gauge
+                for snapshot in snapshots:
+                    gauge_running.add_metric(
+                        [
+                            project,
+                            snapshot.name,
+                        ],
+                        value=snapshot.running,
+                    )
+                    gauge_cpu.add_metric(
+                        [
+                            project,
+                            snapshot.name,
+                        ],
+                        value=snapshot.stats["cpu"],
+                    )
+                    gauge_memory.add_metric(
+                        [
+                            project,
+                            snapshot.name,
+                        ],
+                        value=snapshot.stats["memory"],
+                    )
+            yield from project_container_gauges
 
 
 def compose_run(
@@ -412,10 +420,8 @@ STATS_RE_PERCENT = re.compile(r"^(.+)%$")
 def collect_projects_container_snapshot_parse(
     cpu: str,
     mem: str,
-    running: bool,
 ) -> ContainerSnapshotStats:
     return {
-        "running": running,
         "cpu": float(re.sub(STATS_RE_PERCENT, r"\1", cpu)),
         "memory": float(re.sub(STATS_RE_PERCENT, r"\1", mem)),
     }
@@ -460,10 +466,10 @@ def collect_projects_container_snapshot(
         result[container_info.project].append(
             ContainerSnapshot(
                 name=container_info.name,
+                running=container_info.status == "running",
                 stats=collect_projects_container_snapshot_parse(
                     cs_cpu,
                     cs_mem,
-                    running=container_info.status == "running",
                 ),
             )
         )
@@ -481,7 +487,11 @@ def collect_projects_container_snapshot(
             result.setdefault(project_key, []).append(
                 ContainerSnapshot(
                     name=short_name,
-                    stats={"running": False, "cpu": 0.0, "memory": 0.0},
+                    running=False,
+                    stats={
+                        "cpu": -1,
+                        "memory": -1,
+                    },
                 )
             )
     return result
@@ -492,10 +502,21 @@ def command_metrics_worker(
     terminate: threading.Event,
     snapshot: StatsSnapshot,
 ):
+    initial = True
     while True:
+        if not initial and terminate.wait(timeout=10):
+            break
+        initial = False
         logger.debug("taking project snapshot")
         projects = collect_projects(logger, snapshot.workspace)
-        snapshots = collect_projects_container_snapshot(projects)
+        try:
+            snapshots = collect_projects_container_snapshot(projects)
+        except subprocess.CalledProcessError as e:
+            # containers can appear/disappear between the inspect and stats
+            logger.warning(
+                f"failed to collect project snapshot, retrying next cycle: {e}"
+            )
+            continue
         statuses = {name: project.healthy() for name, project in projects.items()}
 
         with snapshot.lock:
@@ -506,8 +527,6 @@ def command_metrics_worker(
             snapshot.statuses.clear()
             snapshot.statuses.update(statuses)
         logger.debug("updating project snapshot")
-        if terminate.wait(timeout=10):
-            break
 
 
 def command_metrics(

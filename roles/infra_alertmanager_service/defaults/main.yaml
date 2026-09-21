@@ -27,20 +27,20 @@ infra_alertmanager_service_ntfy:
       http_config:
         http_headers:
           "X-Tags":
-            values: ["rotating_light"]
+            values: ["severity-critical,rotating_light"]
           "X-Priority":
             values: ["urgent"]
     warning:
       http_config:
         http_headers:
           "X-Tags":
-            values: ["warning"]
+            values: ["severity-warning,warning"]
           "X-Priority":
             values: ["default"]
     info:
       http_config:
         http_headers:
           "X-Tags":
-            values: ["information_source"]
+            values: ["severity-info,information_source"]
           "X-Priority":
             values: ["low"]

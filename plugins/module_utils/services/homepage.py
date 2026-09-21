@@ -31,6 +31,9 @@ class Service(NodeProjectService[ServiceParamsModel]):
             },
             workspace=NodeProjectServiceWorkspaceModel(
                 mounts={
+                    "images": NodeProjectServiceWorkspaceMountModel(
+                        target="/app/public/images",
+                    ),
                     "config": NodeProjectServiceWorkspaceMountModel(
                         target="/app/config",
                     ),

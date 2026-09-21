@@ -1,0 +1,20 @@
+- name: Copy Homepage Files
+  tags: [bump]
+  become: true
+  ansible.builtin.copy:
+      src: docker-services/homepage/
+      dest: "{{ vars_host_homelab_nodes_projects__workspaces[infra_homepage_service_name].images.source }}/"
+      mode: "0644"
+      owner: "{{ vars_host_homelab_nodes_projects__workspaces_owners[infra_homepage_service_name].owner }}"
+      group: "{{ vars_host_homelab_nodes_projects__workspaces_owners[infra_homepage_service_name].group }}"
+
+- name: Create Homepage Configuration Files
+  tags: [bump]
+  become: true
+  with_fileglob: ../templates/*.j2
+  ansible.builtin.template:
+      src: "{{ item }}"
+      dest: "{{ vars_host_homelab_nodes_projects__workspaces[infra_homepage_service_name].config.source }}/{{ item | basename | splitext | first }}"
+      mode: "0644"
+      owner: "{{ vars_host_homelab_nodes_projects__workspaces_owners[infra_homepage_service_name].owner }}"
+      group: "{{ vars_host_homelab_nodes_projects__workspaces_owners[infra_homepage_service_name].group }}"

@@ -18,7 +18,7 @@
 {%- set ntfy_config = infra_alertmanager_service_ntfy.severities[severity_name] | ansible.builtin.combine(
     infra_alertmanager_service_ntfy.common,
     {
-        "url": "{0}/{1}{2}".format(notifier.url.value, notifier.topic_prefix, severity_name),
+        "url": "{0}/{1}".format(notifier.url.value, notifier.topic),
         "http_config": {"authorization": {"credentials": notifier.token}},
     },
     {
@@ -50,13 +50,10 @@ route:
   group_interval: 30s
   repeat_interval: 24h
   routes:
-    - matchers:
-        - severity = "critical"
+    - matchers: [severity = "critical"]
       receiver: critical
       repeat_interval: 4h
-      mute_time_intervals: [night]
-    - matchers:
-        - severity = "warning"
+    - matchers: [severity = "warning"]
       receiver: warning
       repeat_interval: 12h
       mute_time_intervals: [night]

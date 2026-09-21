@@ -1,6 +1,6 @@
 import typing
 
-from ..models.net import NetworkTargetModel
+from ..models.net import NetworkTargetModel, NetworkUrl, url_to_nice
 from ..models.node import (
     NodeProjectServiceParamsModel,
     NodeProjectServiceSpecModel,
@@ -12,6 +12,7 @@ from . import (
 
 class ServiceParamsModel(NodeProjectServiceParamsModel):
     template: str
+    homepage: NetworkUrl | None = None
 
 
 class Service(NodeProjectService[ServiceParamsModel]):
@@ -35,5 +36,10 @@ class Service(NodeProjectService[ServiceParamsModel]):
         self._compose.common.environment.update(
             TEMPLATE_NAME=self._params.template,
         )
+
+        if self._params.homepage is not None:
+            self._compose.common.environment.update(
+                HOMEPAGE_URL=url_to_nice(self._params.homepage),
+            )
 
         super().customize()

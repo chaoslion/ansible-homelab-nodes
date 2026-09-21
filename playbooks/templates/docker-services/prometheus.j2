@@ -1,3 +1,86 @@
+{%- macro notification_template_title(titleLimit=150) -%}
+{%- set defaultCutoff = [titleLimit - 10, 0] | max -%}
+{{ "{{{{- $titleLimit := {0} -}}}}".format(titleLimit) }}
+{{ "{{{{- $baseCutoff := {0} -}}}}".format(defaultCutoff) }}
+{%- raw %}
+{{- /* Field Normalization */ -}}
+{{- $groupLabels := or .GroupLabels .groupLabels -}}
+{{- $alerts := or .Alerts .alerts -}}
+
+{{- /* Extract Labels */ -}}
+{{- $alertname := or (index $groupLabels "alertname") "Alert" -}}
+{{- $job := index $groupLabels "job" -}}
+
+{{- /* Compose Base Title */ -}}
+{{- $base := $alertname -}}
+{{- if $job -}}
+  {{- $base = printf "%s (%s)" $alertname $job -}}
+{{- end -}}
+
+{{- /* Calculate Alert Count Suffix */ -}}
+{{- $countSuffix := "" -}}
+{{- $total := len $alerts -}}
+{{- if gt $total 100 -}}
+  {{- $countSuffix = " [99+]" -}}
+{{- else if gt $total 1 -}}
+  {{- $countSuffix = printf " [%d]" $total -}}
+{{- end -}}
+
+{{- /* Fit Base + Suffix inside $titleLimit */ -}}
+{{- $title := printf "%s%s" $base $countSuffix -}}
+{{- if gt (len $title) $titleLimit -}}
+  {{- $title = printf (printf "%%.%ds...%%s" $baseCutoff) $base $countSuffix -}}
+{{- end -}}
+
+{{ $title }}
+{%- endraw %}
+{%- endmacro -%}
+
+{%- macro notification_template_message(maxBudget=1000, descLimit=140) -%}
+{{ "{{{{- $maxBudget := {0} -}}}}".format(maxBudget) }}
+{{ "{{{{- $descLimit := {0} -}}}}".format(descLimit) }}
+{%- raw %}
+{{- $truncationMarker := "...\n" -}}
+
+{{- /* Field Normalization */ -}}
+{{- $alerts := or .Alerts .alerts -}}
+
+{{- /* Description Header */ -}}
+{{- $first := index $alerts 0 -}}
+{{- $firstAnns := or $first.Annotations $first.annotations -}}
+{{- $rawDesc := or (index $firstAnns "description") "Alert Details" -}}
+{{- $desc := printf (printf "%%.%ds" $descLimit) $rawDesc -}}
+{{- if gt (len $rawDesc) $descLimit -}}{{- $desc = printf "%s..." $desc -}}{{- end -}}
+
+{{- /* Build string buffer and test total output size directly */ -}}
+{{- $renderedLines := "" -}}
+{{- $truncated := false -}}
+
+{{- range $a := $alerts -}}
+  {{- $anns := or $a.Annotations $a.annotations -}}
+  {{- $summary := or (index $anns "summary") "firing" -}}
+  {{- $line := printf "%s\n" $summary -}}
+
+  {{- /* Test candidate total length directly against $maxBudget */ -}}
+  {{- $candidate := printf "%s\n\n%s%s%s" $desc $renderedLines $line $truncationMarker -}}
+  {{- if and (not $truncated) (le (len $candidate) $maxBudget) -}}
+    {{- $renderedLines = printf "%s%s" $renderedLines $line -}}
+  {{- else -}}
+    {{- $truncated = true -}}
+  {{- end -}}
+{{- end -}}
+
+{{- if $truncated -}}
+  {{- $renderedLines = printf "%s%s" $renderedLines $truncationMarker -}}
+{{- end -}}
+
+{{ $desc }}
+
+{{ $renderedLines }}
+{%- endraw %}
+{%- endmacro -%}
+
+
 {%- macro target_static_configs(targets) -%}
 {% for target in targets %}
   - targets: ["{{ target.address }}"]
@@ -29,14 +112,14 @@
 {%- for item in q("ansible.builtin.fileglob", role_path ~ "/templates/scrapes/*.yml.j2") | sort %}
 {%- set rendered = (lookup("ansible.builtin.template", item) or "") | trim %}
 {%- if rendered %}
-{%- set _ = result.scrape_configs.append({"job_name": item | basename | replace(".yml.j2", "") | replace("-", "/")} | ansible.builtin.combine(rendered | ansible.builtin.from_yaml)) %}
+{%- set _ = result.scrape_configs.append({"job_name": item | basename | replace(".yml.j2", "") | replace("-", "/")} | ansible.builtin.combine(rendered | ansible.builtin.from_yaml, recursive=true)) %}
 {%- endif %}
 {%- endfor %}
 {{- result | homelab.nodes.to_yaml | trim }}
 {% endmacro %}
 
 {% macro rules_common_jobs_down(jobs) %}
-{%- set clauses = ['max by (job) (up{job=~"' ~ (jobs | join("|")) ~ '"}) == 0'] %}
+{%- set clauses = [] %}
 {%- for job_name in jobs %}
 {%- set _ = clauses.append('absent(up{job="' ~ job_name ~ '"})') %}
 {%- endfor %}
@@ -46,7 +129,8 @@ for: "15m"
 labels:
   severity: critical
 annotations:
-  description: "{% raw %}Job missing: {{ $labels.job }}.{% endraw %}"
+  description: "Scrape job has no reachable targets."
+  summary: "{% raw %}{{ $labels.job }}{% endraw %}"
 {% endmacro %}
 
 {% macro rules(watch=[]) %}
@@ -57,11 +141,11 @@ annotations:
 {%- endfor %}
 {%- set group_common = {} %}
 {%- if watch %}
-{%- set _  = group_common.update({"common": {"rules": [rules_common_jobs_down(watch) | from_yaml]}}) -%}
+{%- set _  = group_common.update({"common_generated": {"rules": [rules_common_jobs_down(watch) | from_yaml]}}) -%}
 {%- endif %}
 {%- set config_groups = [] %}
-{%- for name, group in (groups | ansible.builtin.combine(group_common)).items() %}
-{%- set _ = config_groups.append({"name": name} | ansible.builtin.combine(group)) %}
+{%- for name, group in (groups | ansible.builtin.combine(group_common, recursive=true)).items() %}
+{%- set _ = config_groups.append({"name": name} | ansible.builtin.combine(group, recursive=true)) %}
 {%- endfor %}
 {{- {"groups": config_groups} | homelab.nodes.to_yaml | trim }}
 {% endmacro %}

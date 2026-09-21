@@ -12,6 +12,7 @@ from .net import (
     NetworkTargetModel,
     NetworkUrl,
     WebsiteTargetSchemeNames,
+    url_to_nice,
 )
 
 
@@ -175,7 +176,8 @@ class NodeProjectServiceParamsOpenIDModel(NodeProjectServiceParamsModel):
     @pydantic.computed_field
     @property
     def url_well_known(self) -> str:
-        return f"{self.url}.well-known/openid-configuration"
+        url = url_to_nice(self.url)
+        return f"{url}/.well-known/openid-configuration"
 
 
 class NodeProjectServiceParamsStorageVolumeS3Model(NodeProjectServiceParamsModel):
