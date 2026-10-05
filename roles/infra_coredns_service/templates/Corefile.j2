@@ -37,8 +37,8 @@
 {% for host, target in hosts_resolved.items() %}
     {{ target.host }} {{ host }}
     fallthrough
-  }
 {% endfor %}
+  }
 {% endif %}
   errors {
     consolidate 5m ".* i/o timeout$"
