@@ -111,9 +111,7 @@ class ServiceHelper:
             raise ValueError(f"unknown service endpoint: {address}")
 
         internal = NetworkAddressResolved(
-            host=networks_host_project_service_endpoint.internal.host.format(
-                instance=container_address.instance
-            ),
+            host=networks_host_project_service_endpoint.internal.host,
             port=int(networks_host_project_service_endpoint.internal.port),
             source=address.source,
         )
@@ -183,7 +181,7 @@ class NodeProjectService[T: NodeProjectServiceParamsModel]:
 
         self._compose = NodeProjectServiceComposeModel(
             common=NodeProjectServiceComposeCommonModel(
-                # container_name=self._service_container_name,
+                container_name=self._service_container_name,
                 image=f"{group_variables_model.registry_url}/{self._service_name}:{self._image_tag}",
                 restart="no",
                 environment={}
@@ -238,7 +236,6 @@ class NodeProjectService[T: NodeProjectServiceParamsModel]:
         self._compose.extra.update(
             {
                 "deploy": {
-                    "replicas": config_node_project_service_model.clone or 1,
                     "resources": {
                         "limits": config_node_project_service_model.limits.model_dump(),
                     },
@@ -565,7 +562,7 @@ class NodeProjectService[T: NodeProjectServiceParamsModel]:
             ) in self._spec_model.network.items():
                 address_internal = (
                     GroupProjectsVariablesServiceEndpointAddressInternalModel(
-                        host=f"{self._service_container_name}-{{instance}}",
+                        host=self._service_container_name,
                         port=network_target_config.port,
                     )
                 )

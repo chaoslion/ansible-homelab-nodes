@@ -46,7 +46,7 @@ class NodeProjectServiceImageModel(StrictModel):
 
 
 class NodeProjectServiceComposeCommonModel(StrictModel):
-    # container_name: str
+    container_name: str
     environment: dict[str, str] = pydantic.Field(default_factory=dict)
     image: str
     ports: list[str] = pydantic.Field(default_factory=list)

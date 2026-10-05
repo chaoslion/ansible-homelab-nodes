@@ -17,14 +17,13 @@ from .common import CONTAINER_NAME_MAIN
 NetworkAddressPattern = re.compile(r"^(\w[\w-]*)(:(\d+))?$")
 
 NetworkAddressContainerPattern = re.compile(
-    r"^node-(\w[\w-]*):(\w[\w-]*):(\w[\w-]*)?:(\d+):(\w[\w-]*)$"
+    r"^node-(\w[\w-]*):(\w[\w-]*):(\w[\w-]*)?:(\w[\w-]*)$"
 )
 
 
 class NetworkAddressValueContainerPort(NamedTuple):
     project: str
     service: str
-    instance: int
     endpoint: str
 
 
@@ -46,14 +45,12 @@ def _parse_network_address(value: object):
             node: str = f"node-{match.group(1)}"
             project: str = match.group(2)
             service: str | None = match.group(3)
-            instance: str = match.group(4)
-            endpoint: str = match.group(5)
+            endpoint: str = match.group(4)
             return {
                 "host": node,
                 "port": {
                     "project": project,
                     "service": service or CONTAINER_NAME_MAIN,
-                    "instance": int(instance),
                     "endpoint": endpoint,
                 },
                 "source": value,

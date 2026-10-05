@@ -113,7 +113,6 @@ class ConfigNodeProjectServiceLimitsModel(StrictModel):
 class ConfigNodeProjectServiceModel(StrictModel):
     # dns: list[str | None] = None
     params: dict[str, object] = pydantic.Field(default_factory=dict)
-    clone: int | None = None
     service: str | None = None
     tag: str | None = None
     limits: ConfigNodeProjectServiceLimitsModel = ConfigNodeProjectServiceLimitsModel()

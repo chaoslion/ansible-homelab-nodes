@@ -8,6 +8,7 @@ import platform
 import re
 import signal
 import subprocess
+import sys
 import threading
 import typing
 from itertools import chain
@@ -376,17 +377,11 @@ def collect_projects(logger: logging.Logger, workspace: Path) -> dict[str, Proje
 
         compose_scripts = compose_config_result_values.get("x-homelab-scripts", {})
 
-        containers_expected: list[str] = []
         compose_config_services = compose_config_result_values.get("services", {})
-        for (
-            compose_config_service_name,
-            compose_config_service,
-        ) in compose_config_services.items():
-            replicas = compose_config_service.get("replicas", 1)
-            for i in range(replicas):
-                containers_expected.append(
-                    f"{item.stem}-{compose_config_service_name}-{i + 1}"
-                )
+        containers_expected: list[str] = [
+            f"{item.stem}-{compose_config_service_name}"
+            for compose_config_service_name in compose_config_services
+        ]
 
         containers_detected: dict[str, ContainerInfo] = {}
         for container_name in containers_expected:
@@ -608,7 +603,14 @@ def command_run_execute(
         argv.append(container)
         argv.extend(script.command)
         logger.debug(f"running script on container: {argv}")
-        _ = compose_run(workspace, argv, cwd=workspace / f"homelab-{project}")
+        try:
+            result = compose_run(workspace, argv, cwd=workspace / f"homelab-{project}")
+        except subprocess.CalledProcessError as e:
+            _ = sys.stdout.write(e.stdout or "")
+            _ = sys.stderr.write(e.stderr or "")
+            raise
+        _ = sys.stdout.write(result.stdout)
+        _ = sys.stderr.write(result.stderr)
 
 
 def main():
