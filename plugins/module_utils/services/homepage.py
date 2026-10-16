@@ -2,6 +2,7 @@ import typing
 
 from ..models.net import (
     NetworkTargetModel,
+    NetworkUrl,
     WebsiteGroupNames,
 )
 from ..models.node import (
@@ -15,8 +16,14 @@ from . import (
 )
 
 
+class ServiceParamsUmamiTrackingModel(NodeProjectServiceParamsModel):
+    url: NetworkUrl
+    id: str
+
+
 class ServiceParamsModel(NodeProjectServiceParamsModel):
     domain: str
+    tracking: ServiceParamsUmamiTrackingModel | None = None
 
 
 class Service(NodeProjectService[ServiceParamsModel]):

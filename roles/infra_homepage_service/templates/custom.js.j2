@@ -1,0 +1,13 @@
+function insertTrackingScript(url, id) {
+  const script = document.createElement('script');
+  script.defer = true;
+  script.src = url;
+  script.setAttribute('data-website-id', id);
+  (document.body || document.documentElement).appendChild(script);
+}
+
+(function() {
+{% if vars_host_homelab_nodes_projects__params.main.tracking is not none %}
+  insertTrackingScript("{{ vars_host_homelab_nodes_projects__params.main.tracking.url.value }}", "{{ vars_host_homelab_nodes_projects__params.main.tracking.id }}");
+{% endif %}
+})();

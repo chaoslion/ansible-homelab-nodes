@@ -1,7 +1,5 @@
 import typing
 
-from attr import s
-
 from ..models.net import (
     NetworkTargetModel,
 )
