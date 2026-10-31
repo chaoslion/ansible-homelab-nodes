@@ -495,10 +495,18 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
                 self._homelab_group_variables_model.config.websites.sites
             ):
                 website_config = group_variables["config"]["websites"]["sites"][index]
-                if website.homepage is not None and website.homepage.group is None:
-                    website_config["homepage"].update(
-                        group=self._homelab_group_variables_model.config.websites.default_homepage_group.value
-                    )
+                if website.homepage is not None:
+                    if (
+                        website.homepage.description is not None
+                        and website.homepage.auth in {"admin", "sso/admin"}
+                    ):
+                        website_config["homepage"].update(
+                            description=f"{website.homepage.description} ({self._homelab_group_variables_model.config.admin.name}:{self._homelab_group_variables_model.config.admin.password})",
+                        )
+                    if website.homepage.group is None:
+                        website_config["homepage"].update(
+                            group=self._homelab_group_variables_model.config.websites.default_homepage_group.value,
+                        )
 
                 website_config.update(
                     domains={
@@ -516,45 +524,42 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
                     },
                 )
 
-                if website.proxy is not None:
-                    if not isinstance(website.proxy.service, str):
-                        website_config["proxy"]["service"].update(
-                            {
-                                "servers_resolved": {}
-                            }
-                        )
+                if website.proxy is not None and not isinstance(
+                    website.proxy.service, str
+                ):
+                    website_config["proxy"]["service"].update({"servers_resolved": {}})
 
-                        for (
-                            service_name,
-                            service_servers,
-                        ) in website.proxy.service.servers.items():
-                            servers = []
-                            for server in service_servers:
-                                addresses = ServiceHelper.resolve_addresses(
-                                    server,
-                                    self._homelab_group_variables_model.config,
-                                    group_projects_variables_model.networks,
-                                )
-                                if isinstance(addresses, tuple):
-                                    node_name, internal, external = addresses
-                                    servers.append(
-                                        (
-                                            node_name,
-                                            internal.model_dump(mode="json"),
-                                            external.model_dump(mode="json")
-                                            if external
-                                            else None,
-                                        ),
-                                    )
-                                else:
-                                    servers.append(
-                                        addresses.model_dump(mode="json"),
-                                    )
-                            website_config["proxy"]["service"]["servers_resolved"].update(
-                                {
-                                    service_name: servers,
-                                },
+                    for (
+                        service_name,
+                        service_servers,
+                    ) in website.proxy.service.servers.items():
+                        servers = []
+                        for server in service_servers:
+                            addresses = ServiceHelper.resolve_addresses(
+                                server,
+                                self._homelab_group_variables_model.config,
+                                group_projects_variables_model.networks,
                             )
+                            if isinstance(addresses, tuple):
+                                node_name, internal, external = addresses
+                                servers.append(
+                                    (
+                                        node_name,
+                                        internal.model_dump(mode="json"),
+                                        external.model_dump(mode="json")
+                                        if external
+                                        else None,
+                                    ),
+                                )
+                            else:
+                                servers.append(
+                                    addresses.model_dump(mode="json"),
+                                )
+                        website_config["proxy"]["service"]["servers_resolved"].update(
+                            {
+                                service_name: servers,
+                            },
+                        )
 
         self._homelab_create_inventory_variables(
             self._homelab_groups_model.group,

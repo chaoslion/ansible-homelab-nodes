@@ -144,7 +144,7 @@ class DNSRecordModel(StrictModel):
 type WebsiteAuthNames = Literal[
     "admin",
     "sso",
-    "admin/sso",
+    "sso/admin",
     "custom",
 ]
 
@@ -175,14 +175,14 @@ class WebsiteHomepageModel(StrictModel):
     path: str | None = None
     title: str | None = None
 
-    @pydantic.computed_field
+    @pydantic.computed_field()
     @property
     def description(self) -> str | None:
         result: list[str] = []
         if self.help is not None:
             result.append(self.help.strip())
         if self.auth is not None:
-            result.append(f"Login: {self.auth}")
+            result.append(f"Login: {self.auth.upper()}")
         return "\n".join(result).strip() or None
 
 
