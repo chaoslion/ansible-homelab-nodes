@@ -20,7 +20,6 @@ from . import NodeProjectService
 
 
 class ServiceParamsModel(NodeProjectServiceParamsModel):
-    language: str
     media: NodeProjectServiceParamsStorageVolume | None = None
     openid: NodeProjectServiceParamsOpenIDModel | None = None
     postgres: NetworkAddress
@@ -81,7 +80,12 @@ class Service(NodeProjectService[ServiceParamsModel]):
             PAPERLESS_DBHOST=f"{param_postgres.host}",
             PAPERLESS_DBPORT=f"{param_postgres.port}",
             PAPERLESS_SECRET_KEY=self._params.secret,
-            PAPERLESS_OCR_LANGUAGE=self._params.language,
+            PAPERLESS_OCR_MODE="skip",
+            PAPERLESS_OCR_IMAGE_DPI="300",
+            PAPERLESS_OCR_CLEAN="clean",
+            PAPERLESS_OCR_DESKEW="true",
+            PAPERLESS_OCR_LANGUAGES="deu eng",
+            PAPERLESS_OCR_LANGUAGE="deu+eng",
         )
 
         if self._params.openid is not None:
