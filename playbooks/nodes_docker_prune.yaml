@@ -7,6 +7,8 @@
         builder_cache_all: true
         containers: true
         images: true
+        images_filters:
+          dangling: "false"
         networks: true
         networks_filters:
           "label!": homelab=network
