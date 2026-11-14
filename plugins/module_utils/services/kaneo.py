@@ -37,14 +37,16 @@ class Service(NodeProjectService[ServiceParamsModel]):
     ):
         param_postgres = self._resolve_address("postgres")
         self._compose.common.environment.update(
-            KANEO_CLIENT_URL=url_to_nice(self._params.url),
-            DATABASE_URL=f"postgresql://{self._group_variables_model.config.database.user}:{self._group_variables_model.config.database.password}@{param_postgres.address}/{self._group_variables_model.config.database.name}",
             AUTH_SECRET=self._params.secret,
-            CUSTOM_OAUTH_DISCOVERY_URL=self._params.openid.url_well_known,
+            CUSTOM_AUTH_PKCE="true",
             CUSTOM_OAUTH_CLIENT_ID=self._params.openid.client_id,
             CUSTOM_OAUTH_CLIENT_SECRET=self._params.openid.client_secret,
+            CUSTOM_OAUTH_DISCOVERY_URL=self._params.openid.url_well_known,
             CUSTOM_OAUTH_SCOPES="profile,email,openid,groups",
-            CUSTOM_AUTH_PKCE="true",
+            DATABASE_URL=f"postgresql://{self._group_variables_model.config.database.user}:{self._group_variables_model.config.database.password}@{param_postgres.address}/{self._group_variables_model.config.database.name}",
+            DISABLE_GUEST_ACCESS="false",
+            DISABLE_WORKSPACE_CREATION="true",
+            KANEO_CLIENT_URL=url_to_nice(self._params.url),
         )
 
         self._enable_healthcheck(
