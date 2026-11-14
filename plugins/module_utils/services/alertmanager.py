@@ -87,11 +87,24 @@ class Service(NodeProjectService[ServiceParamsModel]):
         )
 
         if self._params.peers:
+            cluster_expose = (self._config_node_project_service_model.expose or {}).get(
+                "cluster"
+            )
+            cluster_host = (
+                cluster_expose.bind
+                if cluster_expose is not None and cluster_expose.bind is not None
+                else self._node_address
+            )
+            cluster_port = (
+                cluster_expose.port
+                if cluster_expose is not None and cluster_expose.port is not None
+                else self._spec_model.network["cluster"].port
+            )
             command.append(
                 "--cluster.label=homelab",
             )
             command.append(
-                f"--cluster.advertise-address={self._spec_model.network['cluster'].port}",
+                f"--cluster.advertise-address={cluster_host}:{cluster_port}",
             )
             for peer in peers:
                 command.append(
