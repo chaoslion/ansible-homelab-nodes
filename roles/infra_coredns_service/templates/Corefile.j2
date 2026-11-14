@@ -36,8 +36,8 @@
   hosts {
 {% for host, target in hosts_resolved.items() %}
     {{ target.host }} {{ host }}
-    fallthrough
 {% endfor %}
+    fallthrough
   }
 {% endif %}
   errors {
