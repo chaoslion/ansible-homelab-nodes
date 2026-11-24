@@ -10,6 +10,7 @@ import signal
 import subprocess
 import sys
 import threading
+import time
 import typing
 from itertools import chain
 from pathlib import Path
@@ -84,6 +85,8 @@ class StatsSnapshot(NamedTuple):
     # project -> health status
     statuses: dict[str, ProjectStatus]
     workspace: Path
+    # "last_success" -> unix timestamp of the last successful worker cycle
+    timestamps: dict[str, float]
 
 
 class WireguardPeerStats(NamedTuple):
@@ -213,6 +216,13 @@ class StatsSnapshotCollector(prometheus_client.registry.Collector):
                 "homelab_nodes_projects_detected",
                 "Homelab Nodes Projects Detected",
                 value=len(self._stats.projects),
+            )
+            # 0 until the first successful cycle, so a worker that never
+            # succeeds (or dies) shows up as stale instead of as "no data"
+            yield prometheus_client.metrics_core.GaugeMetricFamily(
+                "homelab_nodes_snapshot_last_success_timestamp_seconds",
+                "Homelab Nodes Unix Timestamp Of The Last Successful Snapshot",
+                value=self._stats.timestamps.get("last_success", 0),
             )
             prom_project_running = prometheus_client.metrics_core.GaugeMetricFamily(
                 "homelab_nodes_project_running",
@@ -492,36 +502,56 @@ def collect_projects_container_snapshot(
     return result
 
 
+# consecutive failed cycles (10s apart) before the worker gives up, which
+# makes the whole process exit so systemd can restart it
+METRICS_WORKER_MAX_FAILURES = 30
+
+
 def command_metrics_worker(
     logger: logging.Logger,
     terminate: threading.Event,
     snapshot: StatsSnapshot,
 ):
     initial = True
+    failures = 0
     while True:
         if not initial and terminate.wait(timeout=10):
             break
         initial = False
         logger.debug("taking project snapshot")
-        projects = collect_projects(logger, snapshot.workspace)
         try:
+            projects = collect_projects(logger, snapshot.workspace)
             snapshots = collect_projects_container_snapshot(projects)
+            statuses = {name: project.healthy() for name, project in projects.items()}
         except subprocess.CalledProcessError as e:
             # containers can appear/disappear between the inspect and stats
+            failures += 1
             logger.warning(
-                f"failed to collect project snapshot, retrying next cycle: {e}"
+                f"failed to collect project snapshot ({failures}/{METRICS_WORKER_MAX_FAILURES}), retrying next cycle: {e}"
             )
+        except Exception:
+            # never let an unexpected error silently kill the worker thread,
+            # the http servers would keep serving a stale/empty snapshot
+            failures += 1
+            logger.exception(
+                f"unexpected error collecting project snapshot ({failures}/{METRICS_WORKER_MAX_FAILURES})"
+            )
+        else:
+            failures = 0
+            with snapshot.lock:
+                snapshot.snapshots.clear()
+                snapshot.snapshots.update(snapshots)
+                snapshot.projects.clear()
+                snapshot.projects.extend(list(projects))
+                snapshot.statuses.clear()
+                snapshot.statuses.update(statuses)
+                snapshot.timestamps["last_success"] = time.time()
+            logger.debug("updating project snapshot")
             continue
-        statuses = {name: project.healthy() for name, project in projects.items()}
 
-        with snapshot.lock:
-            snapshot.snapshots.clear()
-            snapshot.snapshots.update(snapshots)
-            snapshot.projects.clear()
-            snapshot.projects.extend(list(projects))
-            snapshot.statuses.clear()
-            snapshot.statuses.update(statuses)
-        logger.debug("updating project snapshot")
+        if failures >= METRICS_WORKER_MAX_FAILURES:
+            logger.error("too many consecutive snapshot failures, giving up")
+            break
 
 
 def command_metrics(
@@ -537,6 +567,7 @@ def command_metrics(
         [],
         {},
         workspace,
+        {},
     )
 
     thread_stats = threading.Thread(
@@ -571,8 +602,6 @@ def command_metrics(
     def __terminate(signum: int, frame):
         logger.debug(f"sig received: {signum}, terminating")
         terminate.set()
-        for server in servers:
-            server.shutdown()
 
     signal.signal(
         signal.SIGINT,
@@ -582,8 +611,17 @@ def command_metrics(
         signal.SIGTERM,
         __terminate,
     )
+    # the worker only returns on terminate or when it gave up; in both cases
+    # tear down the http servers so the process exits instead of serving a
+    # stale snapshot forever
+    thread_stats.join()
+    for server in servers:
+        server.shutdown()
     for thread in threads:
         thread.join()
+    if not terminate.is_set():
+        logger.error("metrics worker stopped unexpectedly, exiting")
+        sys.exit(1)
 
 
 def command_run_execute(

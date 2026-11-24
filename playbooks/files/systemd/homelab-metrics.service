@@ -2,9 +2,12 @@
 Description=Homelab Metrics
 Requires=docker.service
 After=docker.service
+StartLimitIntervalSec=0
 
 [Service]
 ExecStart=/usr/local/bin/homelab-cli -lDEBUG metrics
+Restart=always
+RestartSec=10s
 
 [Install]
 WantedBy=multi-user.target

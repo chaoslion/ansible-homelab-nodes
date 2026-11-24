@@ -49,6 +49,33 @@ loki.source.journal "docker" {
   relabel_rules = loki.relabel.default.rules
 }
 
+loki.relabel "units" {
+  forward_to = []
+  rule {
+    source_labels = ["__journal__hostname"]
+    target_label  = "instance"
+  }
+  rule {
+    source_labels = ["__journal_priority_keyword"]
+    target_label  = "journal_priority"
+  }
+  rule {
+    source_labels = ["__journal__systemd_unit"]
+    target_label  = "homelab_nodes_unit"
+  }
+}
+
+{# alloy journal matches only support AND, so one source per unit #}
+{% for unit in ["homelab-metrics", "homelab-startup", "homelab-daily"] %}
+loki.source.journal "{{ unit | replace('-', '_') }}" {
+  forward_to = [loki.process.default.receiver]
+  path = "{{ 'journal' | homelab.nodes.service_container_mount }}"
+  max_age = "72h"
+  matches = "_SYSTEMD_UNIT={{ unit }}.service"
+  relabel_rules = loki.relabel.units.rules
+}
+
+{% endfor %}
 loki.process "default" {
   forward_to = [loki.write.default.receiver]
   stage.decolorize {}
