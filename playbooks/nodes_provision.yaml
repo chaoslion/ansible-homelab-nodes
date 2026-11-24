@@ -32,7 +32,7 @@
           ansible.builtin.get_url:
             url: "{{ vars_group_homelab_nodes__config.supervisors.image.url }}"
             dest: "{{ vars_group_homelab_nodes__config.supervisors.image.path }}"
-            mode: "06444"
+            mode: "0644"
             checksum: sha512:{{ vars_group_homelab_nodes__config.supervisors.image.url_sha }}
 
         - name: Create Machine With Default Settings
