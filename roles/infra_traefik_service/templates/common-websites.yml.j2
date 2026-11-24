@@ -1,3 +1,4 @@
+{% import 'docker-services/traefik.j2' as traefik %}
 {% macro website_router(website) %}
 {% set website_fqdn = website.domains[infra_traefik_service_params.domain.main] %}
 homelab-{{ website_fqdn.id }}:
@@ -5,10 +6,7 @@ homelab-{{ website_fqdn.id }}:
   priority: 100
   service:  "{{ website.proxy.service if website.proxy.service is string else 'homelab-' ~ website.id ~ '-main@file' }}"
   middlewares:
-    - homelab-errorpages@file
-{% for middleware in website.proxy.middlewares %}
-    - homelab-{{ middleware }}@file
-{% endfor %}
+    {{ traefik.middlewares(website.proxy.middlewares) | indent(4) }}
 {% endmacro %}
 
 {%- macro website_service(website) %}

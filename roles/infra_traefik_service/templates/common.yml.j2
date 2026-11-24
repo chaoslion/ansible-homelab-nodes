@@ -27,6 +27,23 @@ http:
         average: 500
         burst: 200
         period: 1s
+    homelab-secure-headers:
+      headers:
+        stsSeconds: 63072000
+        stsIncludeSubdomains: true
+        stsPreload: false
+        contentTypeNosniff: true
+        frameDeny: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        permissionsPolicy: "camera=(), microphone=(), geolocation=(), payment=()"
+        browserXssFilter: false
+        customResponseHeaders:
+          Cross-Origin-Opener-Policy: "same-origin"
+          Cross-Origin-Resource-Policy: "same-origin"
+          X-Permitted-Cross-Domain-Policies: "none"
+          X-XSS-Protection: "0"
+          Origin-Agent-Cluster: "?1"
+          X-DNS-Prefetch-Control: "off"
     homelab-errorpages:
       errors:
         status: 400-599

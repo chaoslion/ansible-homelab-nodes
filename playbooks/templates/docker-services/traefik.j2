@@ -1,0 +1,44 @@
+{%- macro csp(img=[], style=[], font=[], script=[], connect=[], worker=none) -%}
+default-src 'self'; img-src 'self' data:{% for s in img %} {{ s }}{% endfor %}; style-src 'self' 'unsafe-inline'{% for s in style %} {{ s }}{% endfor %}; font-src 'self'{% for s in font %} {{ s }}{% endfor %}; script-src 'self'{% for s in script %} {{ s }}{% endfor %}; connect-src 'self'{% for s in connect %} {{ s }}{% endfor %};{% if worker is not none %} worker-src 'self'{% for s in worker %} {{ s }}{% endfor %};{% endif %} frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+{%- endmacro -%}
+
+{#- CSP middleware `homelab-secure-csp-<name>`; extra kwargs go to csp(). CSP is opt-in per site, secure-headers sets none.
+    report_only=true to test a new policy in the browser console before enforcing it
+    (upgrade-insecure-requests is omitted there, browsers ignore it in report-only policies). -#}
+{%- macro csp_middleware(name, headers={}, report_only=false) -%}
+{%- set out -%}
+homelab-secure-csp-{{ name }}:
+  headers:
+    customResponseHeaders:
+{% if report_only %}
+      Content-Security-Policy-Report-Only: "{{ csp(**kwargs) }}"
+{% else %}
+      Content-Security-Policy: "{{ csp(**kwargs) }}; upgrade-insecure-requests"
+{% endif %}
+{% for key, value in headers.items() %}
+      {{ key }}: "{{ value }}"
+{% endfor %}
+{%- endset -%}
+{{ out | trim }}
+{%- endmacro -%}
+
+{#- tracking: origin of the script injected by Homepage's custom.js (if tracking is configured) -#}
+{%- macro csp_homepage_middleware(tracking=none) -%}
+{%- set extra = [tracking] if tracking is not none else [] -%}
+{{ csp_middleware("homepage", img=["https://cdn.jsdelivr.net"], script=extra, connect=extra) }}
+{%- endmacro -%}
+
+{#- Router middleware list: secure-csp-* first, then secure-headers, then errorpages, then the rest (e.g. ratelimit).
+    Listed first = applied last to the response, so site headers override secure-headers (e.g. CORP) and error pages get headers too. -#}
+{%- macro middlewares(names=[], errorpages=true) -%}
+{%- set ns = namespace(policies=[], base=[], rest=[]) -%}
+{%- for name in names -%}
+{%- if name == 'secure-headers' -%}{%- set ns.base = ns.base + [name] -%}
+{%- elif name.startswith('secure-') -%}{%- set ns.policies = ns.policies + [name] -%}
+{%- else -%}{%- set ns.rest = ns.rest + [name] -%}
+{%- endif -%}
+{%- endfor -%}
+{%- for name in ns.policies + ns.base + (['errorpages'] if errorpages else []) + ns.rest -%}
+- homelab-{{ name }}@file{% if not loop.last %}{{ "\n" }}{% endif %}
+{%- endfor -%}
+{%- endmacro -%}
